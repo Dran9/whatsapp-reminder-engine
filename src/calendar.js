@@ -41,27 +41,34 @@ function parseSummary(summary) {
  */
 async function getUpcomingEvents(minutesBefore) {
   const calendar = getCalendarClient();
+  const calendarIds = process.env.CALENDAR_IDS.split(',').map(id => id.trim());
   const now = new Date();
   const windowEnd = new Date(now.getTime() + minutesBefore * 60 * 1000);
 
-  const res = await calendar.events.list({
-    calendarId: process.env.GOOGLE_CALENDAR_ID,
-    timeMin: now.toISOString(),
-    timeMax: windowEnd.toISOString(),
-    singleEvents: true,
-    orderBy: 'startTime',
-  });
+  const allEvents = [];
 
-  return (res.data.items || []).map((evt) => {
-    const parsed = parseSummary(evt.summary);
-    return {
-      id: evt.id,
-      summary: evt.summary || '(Sin titulo)',
-      start: evt.start.dateTime || evt.start.date,
-      contactName: parsed?.name || null,
-      contactPhone: parsed?.phone || null,
-    };
-  });
+  for (const calendarId of calendarIds) {
+    const res = await calendar.events.list({
+      calendarId,
+      timeMin: now.toISOString(),
+      timeMax: windowEnd.toISOString(),
+      singleEvents: true,
+      orderBy: 'startTime',
+    });
+
+    for (const evt of res.data.items || []) {
+      const parsed = parseSummary(evt.summary);
+      allEvents.push({
+        id: evt.id,
+        summary: evt.summary || '(Sin titulo)',
+        start: evt.start.dateTime || evt.start.date,
+        contactName: parsed?.name || null,
+        contactPhone: parsed?.phone || null,
+      });
+    }
+  }
+
+  return allEvents;
 }
 
 module.exports = { getUpcomingEvents, parseSummary };
