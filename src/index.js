@@ -7,7 +7,6 @@ const app = express();
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
-const REMINDER_MINUTES = parseInt(process.env.REMINDER_MINUTES_BEFORE || '30', 10);
 
 // ─── Health check ───────────────────────────────────────────
 app.get('/health', (_req, res) => {
@@ -17,7 +16,7 @@ app.get('/health', (_req, res) => {
 // ─── Enviar recordatorios ───────────────────────────────────
 app.post('/send-reminders', async (req, res) => {
   try {
-    const events = await getUpcomingEvents(REMINDER_MINUTES);
+    const events = await getUpcomingEvents();
     const results = [];
 
     for (const evt of events) {

@@ -35,28 +35,55 @@ function parseSummary(summary) {
 }
 
 /**
- * Obtiene eventos proximos dentro de una ventana de tiempo.
- * @param {number} minutesBefore — minutos antes del evento para considerarlo "proximo"
+ * Calcula inicio y fin de "mañana" en America/La_Paz (UTC-4).
+ */
+function getTomorrowRangeLaPaz() {
+  const LA_PAZ_OFFSET = -4;
+  const now = new Date();
+  const nowLaPaz = new Date(now.getTime() + LA_PAZ_OFFSET * 60 * 60 * 1000);
+
+  const tomorrowLaPaz = new Date(nowLaPaz);
+  tomorrowLaPaz.setUTCDate(tomorrowLaPaz.getUTCDate() + 1);
+  tomorrowLaPaz.setUTCHours(0, 0, 0, 0);
+
+  const endTomorrowLaPaz = new Date(tomorrowLaPaz);
+  endTomorrowLaPaz.setUTCHours(23, 59, 59, 999);
+
+  // Convertir de vuelta a UTC para la API
+  const timeMin = new Date(tomorrowLaPaz.getTime() - LA_PAZ_OFFSET * 60 * 60 * 1000);
+  const timeMax = new Date(endTomorrowLaPaz.getTime() - LA_PAZ_OFFSET * 60 * 60 * 1000);
+
+  return { timeMin, timeMax };
+}
+
+/**
+ * Obtiene eventos de "mañana" (America/La_Paz) de todos los calendarios configurados.
  * @returns {Promise<Array>} lista de eventos
  */
-async function getUpcomingEvents(minutesBefore) {
+async function getUpcomingEvents() {
   const calendar = getCalendarClient();
   const calendarIds = process.env.CALENDAR_IDS.split(',').map(id => id.trim());
-  const now = new Date();
-  const windowEnd = new Date(now.getTime() + minutesBefore * 60 * 1000);
+  const { timeMin, timeMax } = getTomorrowRangeLaPaz();
+
+  console.log(`[calendar] Rango de busqueda: ${timeMin.toISOString()} → ${timeMax.toISOString()}`);
 
   const allEvents = [];
 
   for (const calendarId of calendarIds) {
+    console.log(`[calendar] Consultando calendario: ${calendarId}`);
+
     const res = await calendar.events.list({
       calendarId,
-      timeMin: now.toISOString(),
-      timeMax: windowEnd.toISOString(),
+      timeMin: timeMin.toISOString(),
+      timeMax: timeMax.toISOString(),
       singleEvents: true,
       orderBy: 'startTime',
     });
 
-    for (const evt of res.data.items || []) {
+    const items = res.data.items || [];
+    console.log(`[calendar] Eventos encontrados en ${calendarId}: ${items.length}`);
+
+    for (const evt of items) {
       const parsed = parseSummary(evt.summary);
       allEvents.push({
         id: evt.id,
@@ -68,6 +95,7 @@ async function getUpcomingEvents(minutesBefore) {
     }
   }
 
+  console.log(`[calendar] Total eventos recopilados: ${allEvents.length}`);
   return allEvents;
 }
 
