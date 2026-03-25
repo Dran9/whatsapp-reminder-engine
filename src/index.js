@@ -1,10 +1,13 @@
 const express = require('express');
+const path = require('path');
 const { getUpcomingEvents, confirmEvent } = require('./calendar');
 const { sendReminderTemplate } = require('./whatsapp');
 const { wasAlreadySent, markAsSent, resetSent } = require('./db');
+const { getAvailableSlots } = require('./slots');
 
 const app = express();
 app.use(express.json());
+app.use(express.static(path.join(__dirname, '../public')));
 
 const PORT = process.env.PORT || 3000;
 
@@ -84,6 +87,21 @@ app.post('/webhook', async (req, res) => {
     }
   }
   res.sendStatus(200);
+});
+
+// ─── Available slots ─────────────────────────────────────────
+app.get('/available-slots', async (req, res) => {
+  const { date, calendarId } = req.query;
+  if (!date || !calendarId) {
+    return res.status(400).json({ error: 'Faltan parámetros: date y calendarId' });
+  }
+  try {
+    const data = await getAvailableSlots(calendarId, date);
+    res.json(data);
+  } catch (err) {
+    console.error('Error GCal:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ─── Start ──────────────────────────────────────────────────

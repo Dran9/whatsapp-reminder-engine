@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Horas Disponibles</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --cream: #F7F3EE; --warm: #E8DDD0; --stone: #C4A882;
+    --terracotta: #B5734A; --dark: #2C2420; --mid: #6B5A4E;
+  }
+  body { font-family: 'DM Sans', sans-serif; background: var(--cream);
+    min-height: 100vh; display: flex; align-items: center;
+    justify-content: center; padding: 24px; }
+  .container { width: 100%; max-width: 560px; }
+  .header { margin-bottom: 36px; text-align: center; }
+  .eyebrow { font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--stone); margin-bottom: 10px; font-weight: 500; }
+  h1 { font-family: 'Cormorant Garamond', serif; font-size: 36px;
+    font-weight: 300; color: var(--dark); line-height: 1.1; }
+  h1 span { color: var(--terracotta); font-style: italic; }
+  .subtitle { font-size: 13px; color: var(--mid); margin-top: 8px; font-weight: 300; }
+  .card { background: white; border-radius: 16px; padding: 32px;
+    box-shadow: 0 4px 40px rgba(44,36,32,0.08); }
+  .field { margin-bottom: 16px; }
+  label { display: block; font-size: 11px; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--stone); margin-bottom: 8px; font-weight: 500; }
+  input[type="date"], input[type="text"] { width: 100%; padding: 12px 16px;
+    border: 1.5px solid var(--warm); border-radius: 10px;
+    font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--dark);
+    background: var(--cream); outline: none; transition: border-color 0.2s; }
+  input:focus { border-color: var(--stone); }
+  .btn-fetch { width: 100%; padding: 13px 24px; background: var(--terracotta);
+    color: white; border: none; border-radius: 10px;
+    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500;
+    cursor: pointer; transition: background 0.2s, transform 0.1s;
+    margin-top: 4px; }
+  .btn-fetch:hover:not(:disabled) { background: #a06040; transform: translateY(-1px); }
+  .btn-fetch:disabled { opacity: 0.6; cursor: not-allowed; }
+  .divider { height: 1px; background: var(--warm); margin: 24px 0; }
+  .section-label { font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--stone); margin-bottom: 14px; font-weight: 500; }
+  .slots-block { margin-bottom: 24px; }
+  .slots-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .slot-btn { padding: 9px 18px; border-radius: 8px;
+    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500;
+    cursor: pointer; border: 1.5px solid var(--warm);
+    background: white; color: var(--dark); transition: all 0.15s; }
+  .slot-btn.free:hover { border-color: var(--terracotta);
+    background: #FBF5F0; color: var(--terracotta); transform: translateY(-1px); }
+  .slot-btn.busy { background: var(--warm); color: #C4A882;
+    border-color: var(--warm); cursor: not-allowed;
+    text-decoration: line-through; font-weight: 300; }
+  .break-badge { display: inline-flex; align-items: center; gap: 6px;
+    background: #F0EBE5; color: var(--mid); border-radius: 8px;
+    padding: 8px 16px; font-size: 12px; margin-bottom: 24px; }
+  .state-box { text-align: center; padding: 40px 20px; color: var(--mid); }
+  .state-box .icon { font-size: 40px; margin-bottom: 12px; display: block; }
+  .state-box p { font-size: 14px; font-weight: 300; }
+  .spinner { width: 32px; height: 32px; border: 3px solid var(--warm);
+    border-top-color: var(--terracotta); border-radius: 50%;
+    animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error-box { background: #FEF2F0; border: 1px solid #F5C6C0;
+    border-radius: 10px; padding: 16px; font-size: 13px; color: #C0392B; }
+  .legend { display: flex; gap: 20px; font-size: 12px;
+    color: var(--mid); margin-top: 20px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot.free { background: var(--terracotta); }
+  .dot.busy { background: var(--warm); }
+  details summary { font-size: 11px; color: var(--stone); cursor: pointer;
+    letter-spacing: 1px; text-transform: uppercase; margin-top: 20px; }
+  details pre { font-size: 11px; color: var(--mid); background: var(--cream);
+    padding: 12px; border-radius: 8px; margin-top: 8px;
+    white-space: pre-wrap; overflow: auto; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <p class="eyebrow">Disponibilidad</p>
+    <h1>Horas <span>disponibles</span></h1>
+    <p class="subtitle">Conectado a Google Calendar</p>
+  </div>
+  <div class="card">
+    <div class="field">
+      <label>Calendar ID</label>
+      <input type="text" id="calendarId" value="danielmacleann@gmail.com" placeholder="id@gmail.com o ID largo" />
+    </div>
+    <div class="field">
+      <label>Selecciona un día</label>
+      <input type="date" id="datePicker" />
+    </div>
+    <button class="btn-fetch" id="fetchBtn" onclick="fetchSlots()">Ver horas disponibles →</button>
+    <div id="result">
+      <div class="divider"></div>
+      <div class="state-box">
+        <span class="icon">📅</span>
+        <p>Elige un día y presiona <em>Ver horas</em></p>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  document.getElementById('datePicker').value = d.toISOString().split('T')[0];
+
+  async function fetchSlots() {
+    const date = document.getElementById('datePicker').value;
+    const calendarId = document.getElementById('calendarId').value.trim();
+    if (!date || !calendarId) { alert('Completa los campos'); return; }
+
+    const btn = document.getElementById('fetchBtn');
+    const result = document.getElementById('result');
+    btn.disabled = true;
+    btn.textContent = 'Consultando...';
+    result.innerHTML = `<div class="divider"></div><div class="state-box"><div class="spinner"></div><p>Consultando Google Calendar...</p></div>`;
+
+    try {
+      const res = await fetch(`/available-slots?date=${date}&calendarId=${encodeURIComponent(calendarId)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error desconocido');
+
+      const dateObj = new Date(date + 'T12:00:00');
+      const dayName = dateObj.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+      const morning = data.slots.filter(s => s.block === 'morning');
+      const afternoon = data.slots.filter(s => s.block === 'afternoon');
+      const freeCount = data.slots.filter(s => !s.busy).length;
+
+      function renderBlock(slots, label) {
+        return `<div class="slots-block">
+          <p class="section-label">${label}</p>
+          <div class="slots-grid">
+            ${slots.map(s => `<button class="slot-btn ${s.busy ? 'busy' : 'free'}" ${s.busy ? 'disabled' : ''}>${s.time}</button>`).join('')}
+          </div>
+        </div>`;
+      }
+
+      result.innerHTML = `
+        <div class="divider"></div>
+        <p class="section-label" style="margin-bottom:6px">📆 ${dayName}</p>
+        <p style="font-size:12px;color:var(--mid);margin-bottom:20px;font-weight:300">
+          ${data.events.length} evento(s) · ${freeCount} slots libres
+        </p>
+        ${renderBlock(morning, '☀️ Mañana · 08:00 – 13:00')}
+        <div class="break-badge">☕ 13:00 – 16:00 &nbsp;·&nbsp; Descanso</div>
+        ${renderBlock(afternoon, '🌆 Tarde · 16:00 – 20:00')}
+        <div class="legend">
+          <div class="legend-item"><div class="dot free"></div> Disponible</div>
+          <div class="legend-item"><div class="dot busy"></div> Ocupado</div>
+        </div>
+        <details>
+          <summary>Ver eventos del día</summary>
+          <pre>${data.events.length ? data.events.map(e => `${e.start} – ${e.end}  ${e.title}`).join('\n') : 'Sin eventos'}</pre>
+        </details>
+      `;
+    } catch (err) {
+      result.innerHTML = `<div class="divider"></div><div class="error-box">❌ <strong>Error:</strong> ${err.message}</div>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Ver horas disponibles →';
+    }
+  }
+</script>
+</body>
+</html>
