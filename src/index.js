@@ -1,7 +1,7 @@
 const express = require('express');
 const { getUpcomingEvents, confirmEvent } = require('./calendar');
 const { sendReminderTemplate } = require('./whatsapp');
-const { wasAlreadySent, markAsSent } = require('./db');
+const { wasAlreadySent, markAsSent, resetSent } = require('./db');
 
 const app = express();
 app.use(express.json());
@@ -40,6 +40,12 @@ app.post('/send-reminders', async (req, res) => {
     console.error('Error sending reminders:', err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// ─── Reset (dev only) ───────────────────────────────────────
+app.get('/reset-sent', (_req, res) => {
+  const deleted = resetSent();
+  res.json({ status: 'ok', deleted });
 });
 
 // ─── Webhook de WhatsApp (verificacion + mensajes entrantes) ─

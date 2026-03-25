@@ -41,4 +41,9 @@ function listSent(limit = 50) {
   ).all(limit);
 }
 
-module.exports = { getDb, wasAlreadySent, markAsSent, listSent };
+function resetSent() {
+  const result = getDb().prepare('DELETE FROM sent_reminders').run();
+  return result.changes;
+}
+
+module.exports = { getDb, wasAlreadySent, markAsSent, listSent, resetSent };
