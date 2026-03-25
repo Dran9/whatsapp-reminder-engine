@@ -10,6 +10,8 @@ async function sendTextMessage(to, body) {
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   const token = process.env.WHATSAPP_ACCESS_TOKEN;
 
+  console.log('Token primeros 20 chars:', token ? token.substring(0, 20) : 'UNDEFINED');
+
   const url = `${GRAPH_API_URL}/${phoneNumberId}/messages`;
 
   const res = await fetch(url, {
