@@ -1,6 +1,6 @@
 const express = require('express');
 const { getUpcomingEvents } = require('./calendar');
-const { sendTextMessage } = require('./whatsapp');
+const { sendReminderTemplate } = require('./whatsapp');
 const { wasAlreadySent, markAsSent } = require('./db');
 
 const app = express();
@@ -30,13 +30,7 @@ app.post('/send-reminders', async (req, res) => {
         continue;
       }
 
-      const message =
-        `Hola *${evt.contactName}*, te recordamos tu cita:\n` +
-        `*${evt.summary}*\n` +
-        `Inicio: ${evt.start}\n` +
-        `No olvides asistir.`;
-
-      await sendTextMessage(evt.contactPhone, message);
+      await sendReminderTemplate(evt.contactPhone, evt.contactName, evt.start);
       markAsSent(evt.id, evt.contactPhone);
       results.push({ event: evt.id, phone: evt.contactPhone, name: evt.contactName, status: 'sent' });
     }

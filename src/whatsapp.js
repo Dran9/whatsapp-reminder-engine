@@ -1,39 +1,62 @@
-const GRAPH_API_URL = 'https://graph.facebook.com/v21.0';
+const GRAPH_API_URL = 'https://graph.facebook.com/v18.0';
 
-/**
- * Envia un mensaje de texto via Meta Cloud API.
- * @param {string} to — numero destino con codigo de pais (ej: 5491155551234)
- * @param {string} body — texto del mensaje
- */
-async function sendTextMessage(to, body) {
-  const fetch = (await import('node-fetch')).default;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-  const token = process.env.WHATSAPP_ACCESS_TOKEN;
-
-  console.log('Token primeros 20 chars:', token ? token.substring(0, 20) : 'UNDEFINED');
-
-  const url = `${GRAPH_API_URL}/${phoneNumberId}/messages`;
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      messaging_product: 'whatsapp',
-      to,
-      type: 'text',
-      text: { body },
-    }),
-  });
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`WhatsApp API error ${res.status}: ${err}`);
-  }
-
-  return res.json();
+function getDayInSpanish(date) {
+  const days = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  return days[date.getDay()];
 }
 
-module.exports = { sendTextMessage };
+async function sendReminderTemplate(phone, nombre, fechaISO) {
+  const token = process.env.WHATSAPP_ACCESS_TOKEN;
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+
+  const date = new Date(fechaISO);
+  let nombrewa = nombre.split(' ')[0];
+  nombrewa = nombrewa.charAt(0).toUpperCase() + nombrewa.slice(1).toLowerCase();
+  const fechawa = getDayInSpanish(date) + ' ' + date.getDate();
+  const horawa = date.toISOString().substring(11,16);
+
+  const payload = {
+    messaging_product: 'whatsapp',
+    to: phone,
+    type: 'template',
+    template: {
+      name: 'recordatorionovum26',
+      language: { code: 'es' },
+      components: [
+        {
+          type: 'header',
+          parameters: [{
+            type: 'image',
+            image: { link: 'https://api.pcloud.com/getpubthumb?code=XZi3Uw5ZKuvF6z2Pmw0EOXnAHiRywFfJNhJy&linkpassword=&size=960x540&crop=0&type=auto' }
+          }]
+        },
+        {
+          type: 'body',
+          parameters: [
+            { type: 'text', text: nombrewa },
+            { type: 'text', text: fechawa },
+            { type: 'text', text: horawa }
+          ]
+        },
+        { type: 'button', sub_type: 'quick_reply', index: '0', parameters: [{ type: 'payload', payload: 'CONFIRM_NOW' }] },
+        { type: 'button', sub_type: 'quick_reply', index: '1', parameters: [{ type: 'payload', payload: 'REAGEN_NOW' }] },
+        { type: 'button', sub_type: 'quick_reply', index: '2', parameters: [{ type: 'payload', payload: 'DANIEL_NOW' }] }
+      ]
+    }
+  };
+
+  const response = await fetch(`${GRAPH_API_URL}/${phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(`WhatsApp API error ${response.status}: ${JSON.stringify(data)}`);
+  return data;
+}
+
+module.exports = { sendReminderTemplate };
