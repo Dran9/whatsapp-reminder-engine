@@ -99,4 +99,45 @@ async function getUpcomingEvents() {
   return allEvents;
 }
 
-module.exports = { getUpcomingEvents, parseSummary };
+/**
+ * Confirma un evento buscando por telefono en los eventos de mañana.
+ * Agrega ✅ al inicio del summary si no lo tiene.
+ * @param {string} phone — numero de telefono del contacto
+ */
+async function confirmEvent(phone) {
+  const calendar = getCalendarClient();
+  const calendarIds = process.env.CALENDAR_IDS.split(',').map(id => id.trim());
+  const { timeMin, timeMax } = getTomorrowRangeLaPaz();
+
+  for (const calendarId of calendarIds) {
+    const res = await calendar.events.list({
+      calendarId,
+      timeMin: timeMin.toISOString(),
+      timeMax: timeMax.toISOString(),
+      singleEvents: true,
+      orderBy: 'startTime',
+    });
+
+    for (const evt of res.data.items || []) {
+      const summary = evt.summary || '';
+      if (!summary.includes(phone)) continue;
+      if (summary.startsWith('✅')) {
+        console.log(`[calendar] Evento ya confirmado: ${summary}`);
+        return;
+      }
+
+      console.log(`[calendar] Confirmando evento: ${summary}`);
+      await calendar.events.patch({
+        calendarId,
+        eventId: evt.id,
+        requestBody: { summary: '✅ ' + summary },
+      });
+      console.log(`[calendar] Evento actualizado: ✅ ${summary}`);
+      return;
+    }
+  }
+
+  throw new Error(`No se encontro evento con telefono ${phone} para mañana`);
+}
+
+module.exports = { getUpcomingEvents, parseSummary, confirmEvent };

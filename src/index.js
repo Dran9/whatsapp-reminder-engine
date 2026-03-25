@@ -1,5 +1,5 @@
 const express = require('express');
-const { getUpcomingEvents } = require('./calendar');
+const { getUpcomingEvents, confirmEvent } = require('./calendar');
 const { sendReminderTemplate } = require('./whatsapp');
 const { wasAlreadySent, markAsSent } = require('./db');
 
@@ -55,22 +55,28 @@ app.get('/webhook', (req, res) => {
   res.sendStatus(403);
 });
 
-app.post('/webhook', (req, res) => {
+app.post('/webhook', async (req, res) => {
   const body = req.body;
-
-  if (body.object !== 'whatsapp_business_account') {
-    return res.sendStatus(404);
-  }
+  if (body.object !== 'whatsapp_business_account') return res.sendStatus(404);
 
   for (const entry of body.entry || []) {
     for (const change of entry.changes || []) {
       const messages = change.value?.messages || [];
       for (const msg of messages) {
-        console.log(`Mensaje recibido de ${msg.from}: ${msg.text?.body || '[no text]'}`);
+        const from = msg.from;
+        const payload = msg.button?.payload || msg.interactive?.button_reply?.id || '';
+        console.log(`Mensaje de ${from}, payload: ${payload}`);
+        if (payload === 'CONFIRM_NOW') {
+          try {
+            await confirmEvent(from);
+            console.log(`Evento confirmado para ${from}`);
+          } catch (e) {
+            console.error(`Error confirmando para ${from}:`, e.message);
+          }
+        }
       }
     }
   }
-
   res.sendStatus(200);
 });
 
