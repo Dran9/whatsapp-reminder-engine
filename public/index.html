@@ -47,7 +47,10 @@
   .slot-btn { padding: 9px 18px; border-radius: 8px;
     font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500;
     cursor: pointer; border: 1.5px solid var(--warm);
-    background: white; color: var(--dark); transition: all 0.15s; }
+    background: white; color: var(--dark); transition: all 0.15s;
+    min-width: 80px; text-align: center; }
+  .slot-btn small { font-size: 10px; font-weight: 300; display: block;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
   .slot-btn.free:hover { border-color: var(--terracotta);
     background: #FBF5F0; color: var(--terracotta); transform: translateY(-1px); }
   .slot-btn.busy { background: var(--warm); color: #C4A882;
@@ -136,7 +139,7 @@
         return `<div class="slots-block">
           <p class="section-label">${label}</p>
           <div class="slots-grid">
-            ${slots.map(s => `<button class="slot-btn ${s.busy ? 'busy' : 'free'}" ${s.busy ? 'disabled' : ''}>${s.time}</button>`).join('')}
+            ${slots.map(s => `<button class="slot-btn ${s.busy ? 'busy' : 'free'}" ${s.busy ? 'disabled' : ''} ${s.busy && s.event ? `title="${s.event}"` : ''}>${s.time}${s.busy && s.event ? `<br><small>${s.event}</small>` : ''}</button>`).join('')}
           </div>
         </div>`;
       }
