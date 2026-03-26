@@ -81,7 +81,10 @@ async function sendTextMessage(phone, text) {
   });
 
   const data = await response.json();
-  if (!response.ok) throw new Error(`WhatsApp API error ${response.status}: ${JSON.stringify(data)}`);
+  if (!response.ok) {
+    console.error('[whatsapp] Error:', JSON.stringify(data));
+    throw new Error(`WhatsApp API error: ${response.status}`);
+  }
   return data;
 }
 
