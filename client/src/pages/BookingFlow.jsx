@@ -1,24 +1,28 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import Logo from '../components/Logo';
 import Calendar from '../components/Calendar';
+import {
+  ArrowRight, ArrowLeft, ChevronDown, Calendar as CalendarIcon,
+  Clock, CalendarClock, CalendarCheck, Check, Sun, Sunset,
+  Coffee, Globe, Info, TriangleAlert, MessageCircle, AlertCircle
+} from 'lucide-react';
 
 const COUNTRY_CODES = [
   { code: '+591', flag: '\ud83c\udde7\ud83c\uddf4', name: 'Bolivia' },
   { code: '+54', flag: '\ud83c\udde6\ud83c\uddf7', name: 'Argentina' },
   { code: '+56', flag: '\ud83c\udde8\ud83c\uddf1', name: 'Chile' },
   { code: '+57', flag: '\ud83c\udde8\ud83c\uddf4', name: 'Colombia' },
-  { code: '+51', flag: '\ud83c\uddf5\ud83c\uddea', name: 'Perú' },
+  { code: '+51', flag: '\ud83c\uddf5\ud83c\uddea', name: 'Per\u00fa' },
   { code: '+593', flag: '\ud83c\uddea\ud83c\udde8', name: 'Ecuador' },
-  { code: '+52', flag: '\ud83c\uddf2\ud83c\uddfd', name: 'México' },
-  { code: '+34', flag: '\ud83c\uddea\ud83c\uddf8', name: 'España' },
+  { code: '+52', flag: '\ud83c\uddf2\ud83c\uddfd', name: 'M\u00e9xico' },
+  { code: '+34', flag: '\ud83c\uddea\ud83c\uddf8', name: 'Espa\u00f1a' },
   { code: '+1', flag: '\ud83c\uddfa\ud83c\uddf8', name: 'USA' },
 ];
 
 const CITIES = ['Cochabamba', 'Santa Cruz', 'La Paz', 'Sucre', 'Otro'];
 const SOURCES = ['Referencia de amigos', 'Redes sociales', 'Otro'];
 
-const DAY_NAMES_ES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+const DAY_NAMES_ES = ['domingo', 'lunes', 'martes', 'mi\u00e9rcoles', 'jueves', 'viernes', 's\u00e1bado'];
 const MONTH_NAMES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 
 function formatDateES(dateStr) {
@@ -28,6 +32,36 @@ function formatDateES(dateStr) {
   const month = MONTH_NAMES_ES[d.getMonth()];
   const year = d.getFullYear();
   return `${day.charAt(0).toUpperCase() + day.slice(1)}, ${num} de ${month} de ${year}`;
+}
+
+// Logo component with configurable width
+function Logo({ width = 90 }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center' }} className={width === 120 ? 'logo' : 'logo-small'}>
+      <svg width={width} height={width * 0.55} viewBox="0 0 180 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <text x="0" y="32" fontFamily="Work Sans, sans-serif" fontWeight="600" fontSize="22" fill="#1A1A17">
+          Daniel MacLean
+        </text>
+        <text x="0" y="46" fontFamily="Work Sans, sans-serif" fontWeight="300" fontSize="11" fill="#A4A4A6" letterSpacing="2">
+          PSICOTERAPIA
+        </text>
+      </svg>
+    </div>
+  );
+}
+
+// Progress dots component
+function ProgressDots({ current, total = 4, done = false }) {
+  return (
+    <div className="progress-dots">
+      {Array.from({ length: total }, (_, i) => (
+        <div
+          key={i}
+          className={`progress-dot ${done ? 'done' : i < current ? 'active' : ''}`}
+        />
+      ))}
+    </div>
+  );
 }
 
 export default function BookingFlow() {
@@ -42,6 +76,10 @@ export default function BookingFlow() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [client, setClient] = useState(null);
   const [activeAppointment, setActiveAppointment] = useState(null);
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+
+  // Reschedule toggle
+  const [wantsReschedule, setWantsReschedule] = useState(false);
 
   // Onboarding
   const [firstName, setFirstName] = useState('');
@@ -69,9 +107,23 @@ export default function BookingFlow() {
       .catch(() => {});
   }, []);
 
+  // Auto-detect country by IP
+  useEffect(() => {
+    fetch('https://ipapi.co/json/')
+      .then(r => r.json())
+      .then(data => {
+        if (data.country_calling_code) {
+          const match = COUNTRY_CODES.find(c => c.code === data.country_calling_code);
+          if (match) setCountryCode(match.code);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // Check URL params on mount
   useEffect(() => {
     const t = params.get('t');
+    const code = params.get('code');
     const name = params.get('name');
     const last = params.get('last');
     const ageParam = params.get('age');
@@ -176,7 +228,7 @@ export default function BookingFlow() {
     setError('');
     try {
       const dateTime = `${selectedDate}T${selectedSlot}`;
-      const isReschedule = activeAppointment && screen === 3;
+      const isReschedule = activeAppointment && screen === 4;
 
       const endpoint = isReschedule ? '/api/reschedule' : '/api/book';
       const body = isReschedule
@@ -204,164 +256,265 @@ export default function BookingFlow() {
     setIsInternational(countryCode !== '+591');
   }, [countryCode]);
 
-  // ─── Screens ──────────────────────────────────────────────
+  // Close country dropdown on outside click
+  useEffect(() => {
+    if (!showCountryDropdown) return;
+    const handler = () => setShowCountryDropdown(false);
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [showCountryDropdown]);
 
-  // Screen 1: Phone input
+  const currentCountry = COUNTRY_CODES.find(c => c.code === countryCode) || COUNTRY_CODES[0];
+
+  // ─── Screen 1: Phone Input ──────────────────────────────────
   if (screen === 1) {
     return (
       <Layout>
-        <Logo className="mb-8" />
-        <h1 className="text-3xl font-bold text-center mb-2">Agenda tu sesión</h1>
-        <p className="text-gris-medio text-center mb-8 text-sm">Ingresa tu número de teléfono para comenzar</p>
+        <Logo width={120} />
+        <h1 style={{ fontSize: 30, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
+          Agenda tu sesi\u00f3n
+        </h1>
+        <p style={{ fontSize: 14, color: 'var(--gris-medio)', textAlign: 'center', marginBottom: 32 }}>
+          Elige el horario que mejor te funcione
+        </p>
 
         <div className="card">
           <form onSubmit={handlePhoneSubmit}>
-            <label className="block text-xs font-medium uppercase tracking-widest text-gris-medio mb-2">
-              Teléfono
-            </label>
-            <div className="flex gap-2 mb-4">
-              <select
-                value={countryCode}
-                onChange={e => setCountryCode(e.target.value)}
-                className="input-field !w-28 text-sm"
-              >
-                {COUNTRY_CODES.map(c => (
-                  <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
-                ))}
-              </select>
+            <span className="field-label">N\u00daMERO DE WHATSAPP</span>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              {/* Country prefix selector */}
+              <div style={{ position: 'relative' }}>
+                <div
+                  className="country-selector"
+                  onClick={(e) => { e.stopPropagation(); setShowCountryDropdown(!showCountryDropdown); }}
+                >
+                  <span>{currentCountry.flag}</span>
+                  <span style={{ fontWeight: 500 }}>{currentCountry.code}</span>
+                  <ChevronDown size={14} color="var(--gris-medio)" />
+                </div>
+                {showCountryDropdown && (
+                  <div className="country-dropdown" onClick={e => e.stopPropagation()}>
+                    {COUNTRY_CODES.map(c => (
+                      <div
+                        key={c.code}
+                        className="country-dropdown-item"
+                        onClick={() => { setCountryCode(c.code); setShowCountryDropdown(false); }}
+                      >
+                        <span>{c.flag}</span>
+                        <span>{c.name}</span>
+                        <span style={{ color: 'var(--gris-medio)', marginLeft: 'auto' }}>{c.code}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               <input
                 type="tel"
                 value={phoneNumber}
                 onChange={e => setPhoneNumber(e.target.value)}
                 placeholder="71234567"
-                className="input-field flex-1"
+                className="input-field"
+                style={{ flex: 1 }}
                 autoFocus
               />
             </div>
-            {error && <p className="text-terracota text-sm mb-3">{error}</p>}
-            <button type="submit" disabled={loading || !phoneNumber.trim()} className="btn-primary w-full">
-              {loading ? 'Buscando...' : 'Continuar \u2192'}
+
+            {/* Reschedule toggle */}
+            <div style={{ marginBottom: 20 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  cursor: 'pointer',
+                  padding: '8px 0',
+                }}
+                onClick={() => setWantsReschedule(!wantsReschedule)}
+              >
+                <div className={`radio-circle ${wantsReschedule ? 'active' : ''}`}>
+                  {wantsReschedule && <div className="radio-circle-inner" />}
+                </div>
+                <CalendarClock size={16} color="var(--azul-acero)" />
+                <span style={{ fontSize: 14, color: 'var(--grafito)' }}>Deseo reagendar</span>
+              </div>
+              <div className={`reschedule-content ${wantsReschedule ? 'open' : ''}`}>
+                <p style={{
+                  paddingLeft: 28,
+                  fontSize: 13,
+                  color: 'var(--gris-medio)',
+                  lineHeight: 1.5,
+                  paddingTop: 4,
+                }}>
+                  Ingresa tu n\u00famero y presiona continuar. Te mostraremos tu cita actual con opciones para cambiarla.
+                </p>
+              </div>
+            </div>
+
+            {error && <p style={{ color: 'var(--terracota)', fontSize: 14, marginBottom: 12 }}>{error}</p>}
+
+            <button type="submit" disabled={loading || !phoneNumber.trim()} className="btn-primary">
+              {loading ? 'Buscando...' : 'Continuar'}
+              {!loading && <ArrowRight size={18} />}
             </button>
           </form>
         </div>
+
+        <ProgressDots current={1} />
       </Layout>
     );
   }
 
-  // Screen 2: Onboarding
+  // ─── Screen 2: Onboarding ──────────────────────────────────
   if (screen === 2) {
     const minAge = config?.min_age || 23;
     const maxAge = config?.max_age || 75;
 
     return (
       <Layout>
-        <Logo className="mb-6" />
-        <h1 className="text-2xl font-bold text-center mb-1">
-          Para darte un mejor servicio, déjanos hacerte algunas preguntas.
+        <Logo width={90} />
+        <h1 style={{ fontSize: 26, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
+          Cu\u00e9ntanos de ti
         </h1>
-        <p className="text-terracota/70 text-center text-sm mb-6">* Todos los campos son obligatorios</p>
+        <p style={{ fontSize: 14, color: 'var(--gris-medio)', textAlign: 'center', marginBottom: 12 }}>
+          Para brindarte la mejor experiencia
+        </p>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 6,
+          marginBottom: 24,
+        }}>
+          <Info size={12} color="var(--terracota)" />
+          <span style={{ fontSize: 12, color: 'var(--terracota)' }}>Todos los campos son obligatorios</span>
+        </div>
 
         <div className="card">
-          <form onSubmit={handleOnboardingSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-medium uppercase tracking-widest text-gris-medio mb-1">Nombre *</label>
-              <input value={firstName} onChange={e => setFirstName(e.target.value)} required className="input-field" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium uppercase tracking-widest text-gris-medio mb-1">Apellido *</label>
-              <input value={lastName} onChange={e => setLastName(e.target.value)} required className="input-field" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium uppercase tracking-widest text-gris-medio mb-1">Edad *</label>
-              <input
-                type="number"
-                value={age}
-                onChange={e => setAge(e.target.value)}
-                min={minAge}
-                max={maxAge}
-                required
-                className="input-field"
-                placeholder={`${minAge}–${maxAge}`}
-              />
-              {age && (Number(age) < minAge || Number(age) > maxAge) && (
-                <p className="text-terracota text-xs mt-1">La edad debe estar entre {minAge} y {maxAge}</p>
-              )}
-            </div>
-
-            {isInternational ? (
+          <form onSubmit={handleOnboardingSubmit}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Nombre */}
               <div>
-                <label className="block text-xs font-medium uppercase tracking-widest text-gris-medio mb-1">País *</label>
-                <input value={country} onChange={e => setCountry(e.target.value)} required className="input-field" />
+                <span className="field-label">NOMBRE *</span>
+                <input value={firstName} onChange={e => setFirstName(e.target.value)} required className="input-field" placeholder="Tu nombre" />
               </div>
-            ) : (
-              <div>
-                <label className="block text-xs font-medium uppercase tracking-widest text-gris-medio mb-1">Ciudad *</label>
-                <select value={city} onChange={e => setCity(e.target.value)} required className="input-field">
-                  {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-            )}
 
-            <div>
-              <label className="block text-xs font-medium uppercase tracking-widest text-gris-medio mb-2">
-                ¿Cómo supiste de Daniel? *
-              </label>
-              <div className="space-y-2">
-                {SOURCES.map(s => (
-                  <label key={s} className="flex items-center gap-3 cursor-pointer group">
-                    <span className={`
-                      w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors
-                      ${source === s ? 'border-azul-acero bg-azul-acero' : 'border-arena group-hover:border-gris-medio'}
-                    `}>
-                      {source === s && <span className="w-2 h-2 bg-white rounded-full" />}
-                    </span>
-                    <span className="text-sm">{s}</span>
-                    <input
-                      type="radio"
-                      name="source"
-                      value={s}
-                      checked={source === s}
-                      onChange={e => setSource(e.target.value)}
-                      className="sr-only"
+              {/* Apellido */}
+              <div>
+                <span className="field-label">APELLIDO *</span>
+                <input value={lastName} onChange={e => setLastName(e.target.value)} required className="input-field" placeholder="Tu apellido" />
+              </div>
+
+              {/* Edad */}
+              <div>
+                <span className="field-label">EDAD *</span>
+                <input
+                  type="number"
+                  value={age}
+                  onChange={e => setAge(e.target.value)}
+                  min={minAge}
+                  max={maxAge}
+                  required
+                  className="input-field"
+                  style={{ width: 120 }}
+                  placeholder={`${minAge}`}
+                />
+                <p style={{ fontSize: 12, color: 'var(--gris-medio)', marginTop: 6 }}>
+                  Entre {minAge} y {maxAge} a\u00f1os
+                </p>
+                {age && (Number(age) < minAge || Number(age) > maxAge) && (
+                  <p style={{ color: 'var(--terracota)', fontSize: 12, marginTop: 4 }}>
+                    La edad debe estar entre {minAge} y {maxAge}
+                  </p>
+                )}
+              </div>
+
+              {/* Ciudad / Pa\u00eds */}
+              {isInternational ? (
+                <div>
+                  <span className="field-label">PA\u00cdS *</span>
+                  <input value={country} onChange={e => setCountry(e.target.value)} required className="input-field" placeholder="Tu pa\u00eds" />
+                </div>
+              ) : (
+                <div style={{ position: 'relative' }}>
+                  <span className="field-label">CIUDAD *</span>
+                  <div style={{ position: 'relative' }}>
+                    <select
+                      value={city}
+                      onChange={e => setCity(e.target.value)}
+                      required
+                      className="input-field"
+                      style={{ appearance: 'none', paddingRight: 40 }}
+                    >
+                      {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <ChevronDown
+                      size={16}
+                      color="var(--gris-medio)"
+                      style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
                     />
-                  </label>
-                ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Source */}
+              <div>
+                <span className="field-label" style={{ marginBottom: 10 }}>\u00bfC\u00d3MO SUPISTE DE DANIEL? *</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {SOURCES.map(s => (
+                    <label key={s} className="radio-option">
+                      <div className={`radio-circle ${source === s ? 'active' : ''}`}>
+                        {source === s && <div className="radio-circle-inner" />}
+                      </div>
+                      <span style={{ fontSize: 14 }}>{s}</span>
+                      <input
+                        type="radio"
+                        name="source"
+                        value={s}
+                        checked={source === s}
+                        onChange={e => setSource(e.target.value)}
+                        style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }}
+                      />
+                    </label>
+                  ))}
+                </div>
               </div>
+
+              {error && <p style={{ color: 'var(--terracota)', fontSize: 14 }}>{error}</p>}
+
+              <button
+                type="submit"
+                disabled={loading || !firstName || !lastName || !age || !source || (Number(age) < minAge || Number(age) > maxAge)}
+                className="btn-primary"
+              >
+                {loading ? 'Guardando...' : 'Continuar'}
+                {!loading && <ArrowRight size={18} />}
+              </button>
             </div>
-
-            {error && <p className="text-terracota text-sm">{error}</p>}
-
-            <button
-              type="submit"
-              disabled={loading || !firstName || !lastName || !age || !source || (Number(age) < minAge || Number(age) > maxAge)}
-              className="btn-primary w-full"
-            >
-              {loading ? 'Guardando...' : 'Continuar \u2192'}
-            </button>
           </form>
         </div>
+
+        <ProgressDots current={2} />
       </Layout>
     );
   }
 
-  // Screen 3: Calendar + Slots
+  // ─── Screen 3: Calendar + Slots ──────────────────────────────────
   if (screen === 3) {
-    const morningSlots = slots.filter(s => s.block === 'morning');
-    const afternoonSlots = slots.filter(s => s.block === 'afternoon');
+    const freeSlots = slots.filter(s => s.status === 'free' || !s.status);
+    const morningSlots = freeSlots.filter(s => s.block === 'morning');
+    const afternoonSlots = freeSlots.filter(s => s.block === 'afternoon');
 
     return (
       <Layout>
-        <Logo className="mb-6" />
-        {client && !activeAppointment && (
-          <p className="text-center text-gris-medio mb-1 text-sm">
-            ¡Qué gusto verte de nuevo!
-          </p>
-        )}
-        <h1 className="text-2xl font-bold text-center mb-6">
-          Elige una fecha y hora para tu sesión
+        <Logo width={90} />
+        <h1 style={{ fontSize: 24, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
+          Elige fecha y hora
         </h1>
+        <p style={{ fontSize: 14, color: 'var(--gris-medio)', textAlign: 'center', marginBottom: 24 }}>
+          Para tu sesi\u00f3n con Daniel
+        </p>
 
-        <div className="card mb-4">
+        <div className="card" style={{ marginBottom: 16 }}>
           <Calendar
             onSelectDate={handleDateSelect}
             selectedDate={selectedDate}
@@ -372,214 +525,312 @@ export default function BookingFlow() {
 
         {selectedDate && (
           <div className="card">
-            <h2 className="font-semibold text-lg mb-4">{formatDateES(selectedDate)}</h2>
+            <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--negro)', marginBottom: 16 }}>
+              {formatDateES(selectedDate)}
+            </h2>
 
             {slotsLoading ? (
-              <p className="text-center text-gris-medio py-6">Consultando disponibilidad...</p>
-            ) : slots.length === 0 ? (
-              <p className="text-center text-gris-medio py-6">No hay horarios disponibles este día</p>
+              <p style={{ textAlign: 'center', color: 'var(--gris-medio)', padding: '24px 0' }}>
+                Consultando disponibilidad...
+              </p>
+            ) : freeSlots.length === 0 ? (
+              <p style={{ textAlign: 'center', color: 'var(--gris-medio)', padding: '24px 0' }}>
+                No hay horarios disponibles este d\u00eda
+              </p>
             ) : (
               <>
                 {morningSlots.length > 0 && (
-                  <div className="mb-4">
-                    <p className="text-xs font-medium uppercase tracking-widest text-gris-medio mb-2">Mañana</p>
-                    <div className="flex flex-wrap gap-2">
+                  <div style={{ marginBottom: afternoonSlots.length > 0 ? 0 : 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                      <Sun size={12} color="var(--dorado)" />
+                      <span style={{ fontSize: 11, fontWeight: 500, textTransform: 'uppercase', letterSpacing: 1.5, color: 'var(--gris-medio)' }}>
+                        Ma\u00f1ana
+                      </span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                       {morningSlots.map(s => (
                         <button
                           key={s.time}
-                          onClick={() => setSelectedSlot(s.time)}
-                          className={`
-                            py-3 px-5 rounded-xl text-sm font-medium transition-all duration-150 min-w-[72px]
-                            ${selectedSlot === s.time
-                              ? 'bg-azul-acero text-white shadow-sm'
-                              : 'bg-blanco-gris text-negro hover:bg-azul-acero/10 hover:text-azul-acero'
-                            }
-                          `}
+                          onClick={() => { setSelectedSlot(s.time); setScreen(4); }}
+                          className={`slot-btn ${selectedSlot === s.time ? 'selected' : ''}`}
                         >
                           {s.time}
                         </button>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {morningSlots.length > 0 && afternoonSlots.length > 0 && (
+                  <div className="break-divider">
+                    <Coffee size={11} />
+                    <span>Descanso</span>
                   </div>
                 )}
 
                 {afternoonSlots.length > 0 && (
                   <div>
-                    <p className="text-xs font-medium uppercase tracking-widest text-gris-medio mb-2">Tarde</p>
-                    <div className="flex flex-wrap gap-2">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                      <Sunset size={12} color="var(--terracota)" />
+                      <span style={{ fontSize: 11, fontWeight: 500, textTransform: 'uppercase', letterSpacing: 1.5, color: 'var(--gris-medio)' }}>
+                        Tarde
+                      </span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                       {afternoonSlots.map(s => (
                         <button
                           key={s.time}
-                          onClick={() => setSelectedSlot(s.time)}
-                          className={`
-                            py-3 px-5 rounded-xl text-sm font-medium transition-all duration-150 min-w-[72px]
-                            ${selectedSlot === s.time
-                              ? 'bg-azul-acero text-white shadow-sm'
-                              : 'bg-blanco-gris text-negro hover:bg-azul-acero/10 hover:text-azul-acero'
-                            }
-                          `}
+                          onClick={() => { setSelectedSlot(s.time); setScreen(4); }}
+                          className={`slot-btn ${selectedSlot === s.time ? 'selected' : ''}`}
                         >
                           {s.time}
                         </button>
                       ))}
                     </div>
                   </div>
-                )}
-
-                {selectedSlot && (
-                  <button
-                    onClick={() => setScreen(4)}
-                    className="btn-primary w-full mt-5"
-                  >
-                    Continuar con {selectedSlot} hs &rarr;
-                  </button>
                 )}
               </>
             )}
           </div>
         )}
 
-        <p className="text-center text-xs text-gris-medio mt-4">
-          🌐 Bolivia (UTC-4)
-        </p>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 6,
+          marginTop: 16,
+        }}>
+          <Globe size={13} color="var(--gris-claro)" />
+          <span style={{ fontSize: 12, color: 'var(--gris-claro)' }}>Bolivia (BOT)</span>
+        </div>
+
+        <ProgressDots current={3} />
       </Layout>
     );
   }
 
-  // Screen 4: Confirmation
+  // ─── Screen 4: Confirmation ──────────────────────────────────
   if (screen === 4) {
     return (
       <Layout>
-        <Logo className="mb-6" />
-        <h1 className="text-2xl font-bold text-center mb-1">Confirma tu sesión</h1>
-        <p className="text-terracota/70 text-center text-sm mb-6">Revisa los detalles antes de confirmar</p>
+        <Logo width={90} />
+        <h1 style={{ fontSize: 24, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
+          Confirma tu sesi\u00f3n
+        </h1>
+        <p style={{ fontSize: 14, color: 'var(--terracota)', textAlign: 'center', marginBottom: 24 }}>
+          Revisa los detalles antes de confirmar
+        </p>
 
-        <div className="card mb-4">
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <span className="text-xl">📅</span>
-              <span className="text-lg font-medium">{formatDateES(selectedDate)}</span>
+        <div className="card" style={{ marginBottom: 20 }}>
+          <div className="detail-row" style={{ paddingTop: 0 }}>
+            <div className="detail-icon">
+              <CalendarIcon size={18} color="var(--gris-medio)" />
             </div>
-            <div className="flex items-center gap-3">
-              <span className="text-xl">🕐</span>
-              <span className="text-lg font-medium">{selectedSlot} hs</span>
+            <div>
+              <div className="detail-label">Fecha</div>
+              <div className="detail-value">{formatDateES(selectedDate)}</div>
+            </div>
+          </div>
+          <div className="detail-row" style={{ paddingBottom: 0 }}>
+            <div className="detail-icon">
+              <Clock size={18} color="var(--gris-medio)" />
+            </div>
+            <div>
+              <div className="detail-label">Hora</div>
+              <div className="detail-value">{selectedSlot} hs</div>
             </div>
           </div>
         </div>
 
-        {error && <p className="text-terracota text-sm text-center mb-3">{error}</p>}
+        {error && <p style={{ color: 'var(--terracota)', fontSize: 14, textAlign: 'center', marginBottom: 12 }}>{error}</p>}
 
         <button
           onClick={handleConfirmBooking}
           disabled={loading}
-          className="btn-primary w-full mb-3"
+          className="btn-primary"
+          style={{ marginBottom: 12 }}
         >
-          {loading ? 'Confirmando...' : '\u2713 Confirmar cita'}
+          <Check size={18} />
+          {loading ? 'Confirmando...' : 'Confirmar cita'}
         </button>
-        <button
-          onClick={() => setScreen(3)}
-          className="btn-secondary w-full"
-        >
+        <button onClick={() => setScreen(3)} className="btn-secondary">
+          <ArrowLeft size={18} />
           Elegir otra hora
         </button>
+
+        <ProgressDots current={4} />
       </Layout>
     );
   }
 
-  // Screen 5: Confirmed
+  // ─── Screen 5: Confirmed ──────────────────────────────────
   if (screen === 5) {
     return (
       <Layout>
-        <Logo className="mb-6" />
-        <div className="flex justify-center mb-4">
-          <div className="w-20 h-20 rounded-full bg-azul-acero/10 flex items-center justify-center animate-checkmark">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4E769B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
+        <Logo width={90} />
+
+        {/* Check circle */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+          <div className="animate-checkmark" style={{
+            width: 72,
+            height: 72,
+            borderRadius: '50%',
+            background: 'var(--cian-light)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            <Check size={32} color="var(--petroleo)" />
           </div>
         </div>
 
-        <h1 className="text-2xl font-bold text-center mb-1">¡Tu cita está confirmada!</h1>
-        <p className="text-center text-gris-medio mb-6">💚 Gracias por tu confianza</p>
+        <h1 style={{ fontSize: 24, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
+          Tu cita est\u00e1 confirmada
+        </h1>
+        <p style={{ fontSize: 14, color: 'var(--turquesa)', textAlign: 'center', marginBottom: 24 }}>
+          Gracias por tu confianza
+        </p>
 
         {bookedAppointment && (
-          <div className="card mb-4">
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <span className="text-xl">📅</span>
-                <span className="font-medium">{formatDateES(bookedAppointment.date)}</span>
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div className="detail-row" style={{ paddingTop: 0 }}>
+              <div className="detail-icon">
+                <CalendarIcon size={18} color="var(--gris-medio)" />
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-xl">🕐</span>
-                <span className="font-medium">{bookedAppointment.time} hs</span>
+              <div>
+                <div className="detail-label">Fecha</div>
+                <div className="detail-value">{formatDateES(bookedAppointment.date)}</div>
+              </div>
+            </div>
+            <div className="detail-row" style={{ paddingBottom: 0 }}>
+              <div className="detail-icon">
+                <Clock size={18} color="var(--gris-medio)" />
+              </div>
+              <div>
+                <div className="detail-label">Hora</div>
+                <div className="detail-value">{bookedAppointment.time} hs</div>
               </div>
             </div>
           </div>
         )}
 
-        <div className="card mb-6">
-          <p className="text-sm text-gris-medio leading-relaxed">
-            Recibirás un mensaje de confirmación por WhatsApp. Si necesitas reagendar o tienes alguna duda, escribe a Daniel directamente por WhatsApp.
-          </p>
+        {/* Notice box */}
+        <div className="notice-box" style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+            <MessageCircle size={18} color="var(--grafito)" style={{ flexShrink: 0, marginTop: 1 }} />
+            <p style={{ fontSize: 13, color: 'var(--grafito)', lineHeight: 1.5 }}>
+              Te llegar\u00e1 un recordatorio el d\u00eda antes de tu cita.
+            </p>
+          </div>
+          <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', marginTop: 12, paddingTop: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+              <TriangleAlert size={18} color="var(--terracota)" style={{ flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 13, color: 'var(--grafito)', lineHeight: 1.5 }}>
+                Toda cancelaci\u00f3n o cambio se debe hacer con m\u00ednimo <strong>6 horas</strong> de anticipaci\u00f3n, caso contrario se cobrar\u00e1 el <strong>50%</strong> del monto de la sesi\u00f3n.
+              </p>
+            </div>
+          </div>
         </div>
 
-        <button onClick={() => { setScreen(1); setClient(null); setSelectedDate(null); setSelectedSlot(null); }} className="btn-secondary w-full">
-          &larr; Volver al inicio
+        <button
+          onClick={() => {
+            setScreen(1);
+            setClient(null);
+            setSelectedDate(null);
+            setSelectedSlot(null);
+            setBookedAppointment(null);
+            setPhoneNumber('');
+            setWantsReschedule(false);
+          }}
+          className="btn-secondary"
+        >
+          <ArrowLeft size={18} />
+          Volver al inicio
         </button>
+
+        <ProgressDots current={4} done={true} />
       </Layout>
     );
   }
 
-  // Screen 6: Active appointment
+  // ─── Screen 6: Already Has Appointment ──────────────────────────────────
   if (screen === 6 && activeAppointment) {
     const apptDate = activeAppointment.date_time.split('T')[0];
     const apptTime = activeAppointment.date_time.split('T')[1]?.substring(0, 5) || '';
 
     return (
       <Layout>
-        <Logo className="mb-6" />
-        <h1 className="text-2xl font-bold text-center mb-1">
-          Hola {client?.first_name} 👋
-        </h1>
-        <p className="text-center text-gris-medio mb-6">⭕ Ya tienes una cita agendada</p>
+        <Logo width={90} />
 
-        <div className="card mb-6">
-          <p className="text-sm text-gris-medio mb-2">Tu cita está agendada para el:</p>
-          <p className="text-lg font-semibold">{formatDateES(apptDate)}</p>
-          <p className="text-lg font-semibold">{apptTime} hs</p>
+        <h1 style={{ fontSize: 22, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 12 }}>
+          Hola {client?.first_name}
+        </h1>
+
+        {/* Alert badge */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
+          <div className="alert-badge">
+            <AlertCircle size={14} color="var(--terracota)" />
+            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--terracota)' }}>
+              Ya tienes una cita agendada
+            </span>
+          </div>
         </div>
 
-        <p className="text-center font-medium mb-4">✋ ¿Qué deseas hacer?</p>
+        <div className="card" style={{ marginBottom: 24 }}>
+          <p style={{ fontSize: 12, color: 'var(--gris-medio)', marginBottom: 12 }}>
+            Tu cita est\u00e1 agendada para el:
+          </p>
+          <div className="detail-row" style={{ paddingTop: 0, borderTop: 'none' }}>
+            <div className="detail-icon">
+              <CalendarIcon size={18} color="var(--gris-medio)" />
+            </div>
+            <div>
+              <div className="detail-value">{formatDateES(apptDate)}</div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--azul-acero)', marginTop: 2 }}>
+                {apptTime} hs
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p style={{ fontSize: 15, fontWeight: 500, textAlign: 'center', color: 'var(--negro)', marginBottom: 16 }}>
+          \u00bfQu\u00e9 deseas hacer?
+        </p>
 
         <button
           onClick={() => setScreen(3)}
-          className="btn-primary w-full mb-3"
+          className="btn-primary"
+          style={{ marginBottom: 12 }}
         >
-          📅 Reagendar mi cita
+          <CalendarClock size={18} />
+          Reagendar mi cita
         </button>
         <button
           onClick={() => {
-            setScreen(1);
-            setClient(null);
-            setActiveAppointment(null);
+            setBookedAppointment({ date: apptDate, time: apptTime });
+            setScreen(5);
           }}
-          className="btn-secondary w-full"
+          className="btn-secondary"
         >
-          📋 Conservar mi cita
+          <CalendarCheck size={18} />
+          Conservar mi cita
         </button>
       </Layout>
     );
   }
 
-  return <Layout><p className="text-center text-gris-medio">Cargando...</p></Layout>;
+  return (
+    <Layout>
+      <p style={{ textAlign: 'center', color: 'var(--gris-medio)', paddingTop: 48 }}>Cargando...</p>
+    </Layout>
+  );
 }
 
 function Layout({ children }) {
   return (
-    <div className="min-h-screen bg-hueso flex items-start justify-center px-4 py-8">
-      <div className="w-full max-w-md">
-        {children}
-      </div>
+    <div className="booking-container" style={{ paddingBottom: 32 }}>
+      {children}
     </div>
   );
 }

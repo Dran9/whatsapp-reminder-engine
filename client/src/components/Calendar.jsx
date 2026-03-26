@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 const MONTH_NAMES = [
   'Enero','Febrero','Marzo','Abril','Mayo','Junio',
@@ -25,12 +26,16 @@ export default function Calendar({ onSelectDate, selectedDate, availableDays = [
 
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay();
-  // Adjust to Monday start (0=Mon, 6=Sun)
   const startOffset = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
 
   const cells = [];
   for (let i = 0; i < startOffset; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  function isToday(day) {
+    if (!day) return false;
+    return viewYear === today.getFullYear() && viewMonth === today.getMonth() && day === today.getDate();
+  }
 
   function isEnabled(day) {
     if (!day) return false;
@@ -68,51 +73,81 @@ export default function Calendar({ onSelectDate, selectedDate, availableDays = [
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      {/* Month navigation */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <button
           onClick={prevMonth}
           disabled={!canGoPrev}
-          className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-blanco-gris disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="cal-nav-btn"
         >
-          &larr;
+          <ChevronLeft size={16} color="var(--grafito)" />
         </button>
-        <span className="font-semibold text-lg text-negro">
+        <span style={{ fontWeight: 600, fontSize: 16, color: 'var(--negro)' }}>
           {MONTH_NAMES[viewMonth]} {viewYear}
         </span>
         <button
           onClick={nextMonth}
           disabled={!canGoNext}
-          className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-blanco-gris disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="cal-nav-btn"
         >
-          &rarr;
+          <ChevronRight size={16} color="var(--grafito)" />
         </button>
       </div>
 
-      <div className="grid grid-cols-7 gap-1 mb-2">
+      {/* Day headers */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 4 }}>
         {DAY_LABELS.map(d => (
-          <div key={d} className="text-center text-xs font-medium text-gris-medio py-1">{d}</div>
+          <div key={d} style={{
+            textAlign: 'center',
+            fontSize: 11,
+            fontWeight: 500,
+            textTransform: 'uppercase',
+            color: 'var(--gris-medio)',
+            padding: '4px 0',
+          }}>
+            {d}
+          </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-7 gap-1">
+      {/* Day cells */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
         {cells.map((day, i) => {
           if (!day) return <div key={i} />;
           const enabled = isEnabled(day);
           const selected = isSelected(day);
+          const todayCell = isToday(day);
+
           return (
             <button
               key={i}
               onClick={() => handleClick(day)}
               disabled={!enabled}
-              className={`
-                h-11 rounded-lg text-sm font-medium transition-all duration-150
-                ${selected
-                  ? 'bg-azul-acero text-white shadow-sm'
-                  : enabled
-                    ? 'text-negro hover:bg-azul-acero/10 hover:text-azul-acero cursor-pointer'
-                    : 'text-gris-claro cursor-not-allowed'
+              style={{
+                height: 44,
+                borderRadius: 10,
+                fontSize: 14,
+                fontWeight: selected ? 600 : enabled ? 500 : 400,
+                border: todayCell && !selected ? '1.5px solid var(--arena)' : 'none',
+                background: selected ? 'var(--negro)' : 'transparent',
+                color: selected ? 'var(--hueso)' : enabled ? 'var(--negro)' : 'var(--gris-claro)',
+                cursor: enabled ? 'pointer' : 'not-allowed',
+                transition: 'all 150ms',
+                padding: '10px 0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              onMouseEnter={e => {
+                if (enabled && !selected) {
+                  e.currentTarget.style.background = 'var(--blanco-gris)';
                 }
-              `}
+              }}
+              onMouseLeave={e => {
+                if (!selected) {
+                  e.currentTarget.style.background = 'transparent';
+                }
+              }}
             >
               {day}
             </button>
