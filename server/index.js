@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const cors = require('cors');
 const { initDB } = require('./db');
 const { checkAndSendReminders } = require('./services/reminder');
@@ -10,7 +11,10 @@ app.use(cors());
 app.use(express.json());
 
 // Serve React build in production
-app.use(express.static(path.join(__dirname, '../client/dist')));
+const distPath = path.join(__dirname, '../client/dist');
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+}
 
 const PORT = process.env.PORT || 3000;
 
@@ -58,9 +62,11 @@ app.post('/api/webhook', async (req, res) => {
 });
 
 // ─── SPA fallback ────────────────────────────────────────────
+const indexHtml = path.join(distPath, 'index.html');
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api/')) return res.status(404).json({ error: 'Not found' });
-  res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+  if (fs.existsSync(indexHtml)) return res.sendFile(indexHtml);
+  res.status(503).send('Client not built yet. Run: npm run build');
 });
 
 // ─── Start ───────────────────────────────────────────────────
