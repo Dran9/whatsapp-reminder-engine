@@ -44,12 +44,17 @@ app.get('/api/webhook', (req, res) => {
   res.sendStatus(403);
 });
 
-app.post('/api/webhook', async (req, res) => {
+app.post('/api/webhook', (req, res) => {
   const body = req.body;
   if (body.object !== 'whatsapp_business_account') return res.sendStatus(404);
 
-  let lastFrom = null;
-  let lastPayload = null;
+  // CRITICAL: Respond 200 to Meta IMMEDIATELY — before any async work.
+  // Meta requires a response within ~10s or it marks delivery as failed
+  // and enters exponential backoff (delays grow to minutes/hours).
+  res.sendStatus(200);
+
+  // Process asynchronously after Meta already got its 200
+  const { sendTextMessage } = require('./services/whatsapp');
 
   for (const entry of body.entry || []) {
     for (const change of entry.changes || []) {
@@ -57,23 +62,16 @@ app.post('/api/webhook', async (req, res) => {
       for (const msg of messages) {
         const from = msg.from;
         const payload = msg.button?.payload || msg.interactive?.button_reply?.id || '';
-        lastFrom = from;
-        lastPayload = payload;
         console.log(`[webhook] Message from ${from}, payload: ${payload}`);
 
-        // Responder con mensaje para confirmar recepción del webhook
         if (payload) {
-          const { sendTextMessage } = require('./services/whatsapp');
-          try {
-            await sendTextMessage(from, `✅ Webhook recibido! Payload: "${payload}"`);
-          } catch (err) {
-            console.error(`[webhook] Error sending reply to ${from}:`, err.message);
-          }
+          sendTextMessage(from, `✅ Recibido: "${payload}"`)
+            .then(() => console.log(`[webhook] Reply sent to ${from}`))
+            .catch(err => console.error(`[webhook] Reply failed for ${from}:`, err.message));
         }
       }
     }
   }
-  res.status(200).json({ received: true, from: lastFrom, payload: lastPayload });
 });
 
 // ─── SPA fallback ────────────────────────────────────────────
