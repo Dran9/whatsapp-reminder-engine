@@ -63,6 +63,9 @@ async function sendTextMessage(phone, text) {
   const token = process.env.WA_TOKEN;
   const phoneNumberId = process.env.WA_PHONE_ID;
 
+  console.log('[whatsapp] Token existe:', !!token);
+  console.log('[whatsapp] Phone ID:', phoneNumberId);
+
   const response = await fetch(`${GRAPH_API_URL}/${phoneNumberId}/messages`, {
     method: 'POST',
     headers: {
