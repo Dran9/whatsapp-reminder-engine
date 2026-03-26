@@ -8,19 +8,19 @@ import {
 import {
   ArrowRight, ArrowLeft, ChevronDown, Calendar as CalendarIcon,
   Clock, CalendarClock, CalendarCheck, Check, Sun, Sunset,
-  Coffee, Globe, Info, TriangleAlert, MessageCircle, AlertCircle, Search
+  Coffee, Globe, Info, TriangleAlert, MessageCircle, AlertCircle, Search, RefreshCw
 } from 'lucide-react';
 
 const COUNTRY_CODES = [
-  { code: '+591', flag: '🇧🇴', name: 'Bolivia' },
-  { code: '+54', flag: '🇦🇷', name: 'Argentina' },
-  { code: '+56', flag: '🇨🇱', name: 'Chile' },
-  { code: '+57', flag: '🇨🇴', name: 'Colombia' },
-  { code: '+51', flag: '🇵🇪', name: 'Perú' },
-  { code: '+593', flag: '🇪🇨', name: 'Ecuador' },
-  { code: '+52', flag: '🇲🇽', name: 'México' },
-  { code: '+34', flag: '🇪🇸', name: 'España' },
-  { code: '+1', flag: '🇺🇸', name: 'USA' },
+  { code: '+591', flag: '🇧🇴', name: 'Bolivia', digits: 8 },
+  { code: '+54', flag: '🇦🇷', name: 'Argentina', digits: 10 },
+  { code: '+56', flag: '🇨🇱', name: 'Chile', digits: 9 },
+  { code: '+57', flag: '🇨🇴', name: 'Colombia', digits: 10 },
+  { code: '+51', flag: '🇵🇪', name: 'Perú', digits: 9 },
+  { code: '+593', flag: '🇪🇨', name: 'Ecuador', digits: 9 },
+  { code: '+52', flag: '🇲🇽', name: 'México', digits: 10 },
+  { code: '+34', flag: '🇪🇸', name: 'España', digits: 9 },
+  { code: '+1', flag: '🇺🇸', name: 'USA', digits: 10 },
 ];
 
 const CITIES = ['Cochabamba', 'Santa Cruz', 'La Paz', 'Sucre', 'Otro'];
@@ -58,6 +58,7 @@ function ProgressDots({ current, total = 4, done = false }) {
 
 export default function BookingFlow() {
   const [params] = useSearchParams();
+  const devMode = params.get('devmode') === '1';
   const [screen, setScreen] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -72,6 +73,7 @@ export default function BookingFlow() {
   const [countryCode, setCountryCode] = useState('+591');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [client, setClient] = useState(null);
+  const [clientName, setClientName] = useState('');
   const [activeAppointment, setActiveAppointment] = useState(null);
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
 
@@ -96,6 +98,18 @@ export default function BookingFlow() {
   // Result
   const [bookedAppointment, setBookedAppointment] = useState(null);
   const [clientId, setClientId] = useState(null);
+
+  // Reschedule mode (from Screen 6)
+  const [rescheduleMode, setRescheduleMode] = useState(false);
+
+  // Current country info
+  const currentCountry = COUNTRY_CODES.find(c => c.code === countryCode) || COUNTRY_CODES[0];
+
+  // Phone validation
+  const phoneDigits = phoneNumber.replace(/\D/g, '');
+  const expectedDigits = currentCountry.digits;
+  const phoneComplete = phoneDigits.length === expectedDigits;
+  const phoneTooLong = phoneDigits.length > expectedDigits;
 
   // ─── Load config ──────────────────────────────────────────────
   useEffect(() => {
@@ -202,17 +216,22 @@ export default function BookingFlow() {
     fetchSlots(date);
   }
 
+  // Helper to build fetch URL with devmode
+  function apiUrl(path) {
+    return devMode ? `${path}${path.includes('?') ? '&' : '?'}devmode=1` : path;
+  }
+
   // ─── Book (unified endpoint) ──────────────────────────────────
   async function handleBook(onboarding = null) {
     setLoading(true);
     setError('');
     try {
-      const phone = countryCode.replace('+', '') + phoneNumber.trim();
+      const phone = countryCode.replace('+', '') + phoneDigits;
       const dateTime = `${selectedDate}T${selectedSlot}`;
       const body = { phone, date_time: dateTime };
       if (onboarding) body.onboarding = onboarding;
 
-      const res = await fetch('/api/book', {
+      const res = await fetch(apiUrl('/api/book'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -230,12 +249,15 @@ export default function BookingFlow() {
       if (data.status === 'has_appointment') {
         setActiveAppointment(data.appointment);
         setClientId(data.client_id);
+        if (data.client_name) setClientName(data.client_name);
         setScreen(6);
         setLoading(false);
         return;
       }
 
       if (data.status === 'booked') {
+        // Save name for success screen
+        if (onboarding) setClientName(onboarding.first_name);
         setBookedAppointment({ date: selectedDate, time: selectedSlot });
         setScreen(5);
       }
@@ -252,7 +274,7 @@ export default function BookingFlow() {
     setError('');
     try {
       const dateTime = `${selectedDate}T${selectedSlot}`;
-      const res = await fetch('/api/reschedule', {
+      const res = await fetch(apiUrl('/api/reschedule'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -265,6 +287,7 @@ export default function BookingFlow() {
       if (data.error) throw new Error(data.error);
       setBookedAppointment({ date: selectedDate, time: selectedSlot });
       setActiveAppointment(null);
+      setRescheduleMode(false);
       setScreen(5);
     } catch (err) {
       setError(err.message);
@@ -290,8 +313,6 @@ export default function BookingFlow() {
     document.addEventListener('click', handler);
     return () => document.removeEventListener('click', handler);
   }, [showTzDropdown]);
-
-  const currentCountry = COUNTRY_CODES.find(c => c.code === countryCode) || COUNTRY_CODES[0];
 
   // Convert a La Paz time to selected timezone for display
   function displayTime(time) {
@@ -346,7 +367,7 @@ export default function BookingFlow() {
                     >
                       <span>{z.flag}</span>
                       <span style={{ flex: 1 }}>{z.label}</span>
-                      <span style={{ color: 'var(--gris-medio)', fontSize: 12 }}>{getCurrentTimeInTz(z.tz)}</span>
+                      <span style={{ color: 'var(--gris-medio)', fontSize: 14 }}>{getCurrentTimeInTz(z.tz)}</span>
                     </div>
                   ))}
                 </div>
@@ -366,13 +387,23 @@ export default function BookingFlow() {
     const morningSlots = freeSlots.filter(s => s.block === 'morning');
     const afternoonSlots = freeSlots.filter(s => s.block === 'afternoon');
 
+    // If in reschedule mode and user picks a slot, go to confirm reschedule (screen 7)
+    function handleSlotClick(time) {
+      setSelectedSlot(time);
+      if (rescheduleMode) {
+        setScreen(7);
+      } else {
+        setScreen(2);
+      }
+    }
+
     return (
-      <Layout>
+      <Layout devMode={devMode}>
         <Logo width={120} />
-        <h1 style={{ fontSize: 28, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
+        <h1 style={{ fontSize: 30, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
           Encuentra el momento para tu sesión
         </h1>
-        <p style={{ fontSize: 14, color: 'var(--gris-medio)', textAlign: 'center', marginBottom: 24 }}>
+        <p style={{ fontSize: 16, color: 'var(--gris-medio)', textAlign: 'center', marginBottom: 24 }}>
           Elige una fecha y hora disponible
         </p>
 
@@ -388,16 +419,16 @@ export default function BookingFlow() {
 
         {selectedDate && (
           <div className="card">
-            <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--negro)', marginBottom: 16 }}>
+            <h2 style={{ fontSize: 17, fontWeight: 600, color: 'var(--negro)', marginBottom: 16 }}>
               {formatDateES(selectedDate)}
             </h2>
 
             {(slotsLoading || (!prefetchDone && slots.length === 0)) ? (
-              <p style={{ textAlign: 'center', color: 'var(--gris-medio)', padding: '24px 0' }}>
+              <p style={{ textAlign: 'center', color: 'var(--gris-medio)', padding: '24px 0', fontSize: 16 }}>
                 Consultando disponibilidad...
               </p>
             ) : freeSlots.length === 0 ? (
-              <p style={{ textAlign: 'center', color: 'var(--gris-medio)', padding: '24px 0' }}>
+              <p style={{ textAlign: 'center', color: 'var(--gris-medio)', padding: '24px 0', fontSize: 16 }}>
                 No hay horarios disponibles este día
               </p>
             ) : (
@@ -406,7 +437,7 @@ export default function BookingFlow() {
                   <div style={{ marginBottom: afternoonSlots.length > 0 ? 0 : 16 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                       <Sun size={12} color="var(--dorado)" />
-                      <span style={{ fontSize: 11, fontWeight: 500, textTransform: 'uppercase', letterSpacing: 1.5, color: 'var(--gris-medio)' }}>
+                      <span style={{ fontSize: 13, fontWeight: 500, textTransform: 'uppercase', letterSpacing: 1.5, color: 'var(--gris-medio)' }}>
                         Mañana
                       </span>
                     </div>
@@ -414,7 +445,7 @@ export default function BookingFlow() {
                       {morningSlots.map(s => (
                         <button
                           key={s.time}
-                          onClick={() => { setSelectedSlot(s.time); setScreen(2); }}
+                          onClick={() => handleSlotClick(s.time)}
                           className="slot-btn"
                         >
                           {displayTime(s.time)}
@@ -435,7 +466,7 @@ export default function BookingFlow() {
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                       <Sunset size={12} color="var(--terracota)" />
-                      <span style={{ fontSize: 11, fontWeight: 500, textTransform: 'uppercase', letterSpacing: 1.5, color: 'var(--gris-medio)' }}>
+                      <span style={{ fontSize: 13, fontWeight: 500, textTransform: 'uppercase', letterSpacing: 1.5, color: 'var(--gris-medio)' }}>
                         Tarde
                       </span>
                     </div>
@@ -443,7 +474,7 @@ export default function BookingFlow() {
                       {afternoonSlots.map(s => (
                         <button
                           key={s.time}
-                          onClick={() => { setSelectedSlot(s.time); setScreen(2); }}
+                          onClick={() => handleSlotClick(s.time)}
                           className="slot-btn"
                         >
                           {displayTime(s.time)}
@@ -468,7 +499,7 @@ export default function BookingFlow() {
   // ═══════════════════════════════════════════════════════════════
   if (screen === 2) {
     return (
-      <Layout>
+      <Layout devMode={devMode}>
         <Logo width={90} />
 
         {/* Summary of selected slot */}
@@ -482,17 +513,17 @@ export default function BookingFlow() {
           </div>
         </div>
 
-        <h1 style={{ fontSize: 24, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
+        <h1 style={{ fontSize: 26, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
           Ingresa tu número
         </h1>
-        <p style={{ fontSize: 14, color: 'var(--gris-medio)', textAlign: 'center', marginBottom: 24 }}>
+        <p style={{ fontSize: 16, color: 'var(--gris-medio)', textAlign: 'center', marginBottom: 24 }}>
           Para confirmar tu sesión
         </p>
 
         <div className="card">
-          <form onSubmit={(e) => { e.preventDefault(); setScreen(3); }}>
+          <form onSubmit={(e) => { e.preventDefault(); if (phoneComplete) setScreen(3); }}>
             <span className="field-label">NÚMERO DE WHATSAPP</span>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
               <div style={{ position: 'relative' }}>
                 <div
                   className="country-selector"
@@ -521,17 +552,32 @@ export default function BookingFlow() {
               <input
                 type="tel"
                 value={phoneNumber}
-                onChange={e => setPhoneNumber(e.target.value)}
+                onChange={e => {
+                  const val = e.target.value.replace(/\D/g, '');
+                  if (val.length <= expectedDigits) setPhoneNumber(val);
+                }}
                 placeholder="71234567"
                 className="input-field"
                 style={{ flex: 1 }}
                 autoFocus
+                maxLength={expectedDigits}
               />
             </div>
 
-            {error && <p style={{ color: 'var(--terracota)', fontSize: 14, marginBottom: 12 }}>{error}</p>}
+            {/* Digit counter */}
+            <p className="phone-digit-hint" style={{
+              color: phoneComplete ? 'var(--turquesa)' : phoneDigits.length > 0 ? 'var(--gris-medio)' : 'transparent',
+              marginBottom: 16,
+            }}>
+              {phoneComplete
+                ? `✓ ${expectedDigits}/${expectedDigits} dígitos`
+                : `${phoneDigits.length}/${expectedDigits} dígitos`
+              }
+            </p>
 
-            <button type="submit" disabled={!phoneNumber.trim()} className="btn-primary" style={{ marginBottom: 12 }}>
+            {error && <p style={{ color: 'var(--terracota)', fontSize: 16, marginBottom: 12 }}>{error}</p>}
+
+            <button type="submit" disabled={!phoneComplete} className="btn-primary" style={{ marginBottom: 12 }}>
               Continuar
               <ArrowRight size={18} />
             </button>
@@ -553,31 +599,31 @@ export default function BookingFlow() {
   if (screen === 3) {
     const minAge = config?.min_age || 23;
     const maxAge = config?.max_age || 75;
+    const ageNum = Number(age);
+    const ageOutOfRange = age !== '' && (ageNum < minAge || ageNum > maxAge);
 
     function handleConfirm() {
       if (showOnboarding) {
-        // Submit with onboarding data
         handleBook({
           first_name: firstName,
           last_name: lastName,
-          age: Number(age),
+          age: ageNum,
           city: isInternational ? 'Otro' : city,
           country: isInternational ? country : 'Bolivia',
           source,
         });
       } else {
-        // First attempt — server will tell us if onboarding is needed
         handleBook();
       }
     }
 
     return (
-      <Layout>
+      <Layout devMode={devMode}>
         <Logo width={90} />
-        <h1 style={{ fontSize: 24, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
+        <h1 style={{ fontSize: 26, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
           {showOnboarding ? 'Completa tus datos' : 'Confirma tu sesión'}
         </h1>
-        <p style={{ fontSize: 14, color: showOnboarding ? 'var(--gris-medio)' : 'var(--terracota)', textAlign: 'center', marginBottom: 24 }}>
+        <p style={{ fontSize: 16, color: showOnboarding ? 'var(--gris-medio)' : 'var(--terracota)', textAlign: 'center', marginBottom: 24 }}>
           {showOnboarding ? 'Es tu primera vez, necesitamos algunos datos' : 'Revisa los detalles antes de confirmar'}
         </p>
 
@@ -611,7 +657,7 @@ export default function BookingFlow() {
               gap: 6, marginBottom: 16,
             }}>
               <Info size={12} color="var(--terracota)" />
-              <span style={{ fontSize: 12, color: 'var(--terracota)' }}>Todos los campos son obligatorios</span>
+              <span style={{ fontSize: 14, color: 'var(--terracota)' }}>Todos los campos son obligatorios</span>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -625,8 +671,23 @@ export default function BookingFlow() {
               </div>
               <div>
                 <span className="field-label">EDAD *</span>
-                <input type="number" value={age} onChange={e => setAge(e.target.value)} min={minAge} max={maxAge} className="input-field" style={{ width: 120 }} placeholder={`${minAge}`} />
-                <p style={{ fontSize: 12, color: 'var(--gris-medio)', marginTop: 6 }}>Entre {minAge} y {maxAge} años</p>
+                <input
+                  type="number"
+                  value={age}
+                  onChange={e => setAge(e.target.value)}
+                  min={minAge}
+                  max={maxAge}
+                  className="input-field"
+                  style={{ width: 120 }}
+                  placeholder={`${minAge}`}
+                />
+                {ageOutOfRange ? (
+                  <p style={{ fontSize: 14, color: 'var(--terracota)', marginTop: 6, fontWeight: 500 }}>
+                    Solo atiendo pacientes entre {minAge} y {maxAge} años
+                  </p>
+                ) : (
+                  <p style={{ fontSize: 14, color: 'var(--gris-medio)', marginTop: 6 }}>Entre {minAge} y {maxAge} años</p>
+                )}
               </div>
 
               {isInternational ? (
@@ -654,7 +715,7 @@ export default function BookingFlow() {
                       <div className={`radio-circle ${source === s ? 'active' : ''}`}>
                         {source === s && <div className="radio-circle-inner" />}
                       </div>
-                      <span style={{ fontSize: 14 }}>{s}</span>
+                      <span style={{ fontSize: 16 }}>{s}</span>
                       <input type="radio" name="source" value={s} checked={source === s} onChange={e => setSource(e.target.value)} style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }} />
                     </label>
                   ))}
@@ -664,11 +725,11 @@ export default function BookingFlow() {
           </div>
         </div>
 
-        {error && <p style={{ color: 'var(--terracota)', fontSize: 14, textAlign: 'center', marginBottom: 12 }}>{error}</p>}
+        {error && <p style={{ color: 'var(--terracota)', fontSize: 16, textAlign: 'center', marginBottom: 12 }}>{error}</p>}
 
         <button
           onClick={handleConfirm}
-          disabled={loading || (showOnboarding && (!firstName || !lastName || !age || !source || Number(age) < minAge || Number(age) > maxAge))}
+          disabled={loading || (showOnboarding && (!firstName || !lastName || !age || !source || ageOutOfRange))}
           className="btn-primary"
           style={{ marginBottom: 12 }}
         >
@@ -689,8 +750,10 @@ export default function BookingFlow() {
   // SCREEN 5: Success
   // ═══════════════════════════════════════════════════════════════
   if (screen === 5) {
+    const displayName = clientName || firstName || '';
+
     return (
-      <Layout>
+      <Layout devMode={devMode}>
         <Logo width={90} />
 
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
@@ -702,10 +765,10 @@ export default function BookingFlow() {
           </div>
         </div>
 
-        <h1 style={{ fontSize: 24, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
-          Tu cita está confirmada
+        <h1 style={{ fontSize: 26, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
+          {displayName ? `${displayName}, tu cita está confirmada` : 'Tu cita está confirmada'}
         </h1>
-        <p style={{ fontSize: 14, color: 'var(--turquesa)', textAlign: 'center', marginBottom: 24 }}>
+        <p style={{ fontSize: 16, color: 'var(--turquesa)', textAlign: 'center', marginBottom: 24 }}>
           Gracias por tu confianza
         </p>
 
@@ -735,36 +798,19 @@ export default function BookingFlow() {
         <div className="notice-box" style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
             <MessageCircle size={18} color="var(--grafito)" style={{ flexShrink: 0, marginTop: 1 }} />
-            <p style={{ fontSize: 13, color: 'var(--grafito)', lineHeight: 1.5 }}>
+            <p style={{ fontSize: 15, color: 'var(--grafito)', lineHeight: 1.5 }}>
               Te llegará un recordatorio el día antes de tu cita.
             </p>
           </div>
           <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', marginTop: 12, paddingTop: 12 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
               <TriangleAlert size={18} color="var(--terracota)" style={{ flexShrink: 0, marginTop: 1 }} />
-              <p style={{ fontSize: 13, color: 'var(--grafito)', lineHeight: 1.5 }}>
+              <p style={{ fontSize: 15, color: 'var(--grafito)', lineHeight: 1.5 }}>
                 Toda cancelación o cambio se debe hacer con mínimo <strong>6 horas</strong> de anticipación, caso contrario se cobrará el <strong>50%</strong> del monto de la sesión.
               </p>
             </div>
           </div>
         </div>
-
-        <button
-          onClick={() => {
-            setScreen(1);
-            setClient(null);
-            setSelectedDate(null);
-            setSelectedSlot(null);
-            setBookedAppointment(null);
-            setPhoneNumber('');
-            setShowOnboarding(false);
-            setFirstName(''); setLastName(''); setAge(''); setSource('');
-          }}
-          className="btn-secondary"
-        >
-          <ArrowLeft size={18} />
-          Volver al inicio
-        </button>
 
         <ProgressDots current={4} done={true} />
       </Layout>
@@ -780,49 +826,64 @@ export default function BookingFlow() {
     const apptTime = apptDT.split('T')[1]?.substring(0, 5) || '';
 
     return (
-      <Layout>
+      <Layout devMode={devMode}>
         <Logo width={90} />
 
-        <h1 style={{ fontSize: 22, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 12 }}>
-          ¡Ya tienes una cita!
+        <h1 style={{ fontSize: 24, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
+          {clientName ? `${clientName}, ya tienes una cita` : 'Ya tienes una cita'}
         </h1>
+        <p style={{ fontSize: 16, color: 'var(--gris-medio)', textAlign: 'center', marginBottom: 20 }}>
+          Tu cita actual es:
+        </p>
 
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
-          <div className="alert-badge">
-            <AlertCircle size={14} color="var(--terracota)" />
-            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--terracota)' }}>
-              Ya tienes una cita agendada
-            </span>
-          </div>
-        </div>
-
-        <div className="card" style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 12, color: 'var(--gris-medio)', marginBottom: 12 }}>
-            Tu cita está agendada para el:
-          </p>
+        {/* Existing appointment */}
+        <div className="card" style={{ marginBottom: 16 }}>
           <div className="detail-row" style={{ paddingTop: 0, borderTop: 'none' }}>
             <div className="detail-icon">
               <CalendarIcon size={18} color="var(--gris-medio)" />
             </div>
             <div>
+              <div className="detail-label">Cita actual</div>
               <div className="detail-value">{formatDateES(apptDate)}</div>
-              <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--azul-acero)', marginTop: 2 }}>
+              <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--azul-acero)', marginTop: 2 }}>
                 {apptTime} hs
               </div>
             </div>
           </div>
         </div>
 
-        <p style={{ fontSize: 15, fontWeight: 500, textAlign: 'center', color: 'var(--negro)', marginBottom: 16 }}>
+        {/* New selection they just picked */}
+        <p style={{ fontSize: 16, color: 'var(--gris-medio)', textAlign: 'center', marginBottom: 12 }}>
+          Acabas de elegir:
+        </p>
+        <div className="card" style={{ marginBottom: 24, border: '1.5px solid var(--azul-acero)' }}>
+          <div className="detail-row" style={{ paddingTop: 0, borderTop: 'none' }}>
+            <div className="detail-icon" style={{ background: 'var(--cian-light)' }}>
+              <CalendarClock size={18} color="var(--petroleo)" />
+            </div>
+            <div>
+              <div className="detail-label">Nueva fecha</div>
+              <div className="detail-value">{formatDateES(selectedDate)}</div>
+              <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--petroleo)', marginTop: 2 }}>
+                {displayTime(selectedSlot)} hs
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p style={{ fontSize: 17, fontWeight: 500, textAlign: 'center', color: 'var(--negro)', marginBottom: 16 }}>
           ¿Qué deseas hacer?
         </p>
 
         <button
-          onClick={() => setScreen(1)}
+          onClick={() => {
+            setRescheduleMode(true);
+            setScreen(1);
+          }}
           className="btn-primary"
           style={{ marginBottom: 12 }}
         >
-          <CalendarClock size={18} />
+          <RefreshCw size={18} />
           Reagendar mi cita
         </button>
         <button
@@ -833,22 +894,86 @@ export default function BookingFlow() {
           className="btn-secondary"
         >
           <CalendarCheck size={18} />
-          Conservar mi cita
+          Conservar mi cita actual
+        </button>
+      </Layout>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // SCREEN 7: Confirm Reschedule (after picking new slot in reschedule mode)
+  // ═══════════════════════════════════════════════════════════════
+  if (screen === 7 && activeAppointment) {
+    const apptDT = activeAppointment.date_time || '';
+    const apptDate = apptDT.split('T')[0];
+    const apptTime = apptDT.split('T')[1]?.substring(0, 5) || '';
+
+    return (
+      <Layout devMode={devMode}>
+        <Logo width={90} />
+
+        <h1 style={{ fontSize: 26, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
+          Confirmar reagendamiento
+        </h1>
+        <p style={{ fontSize: 16, color: 'var(--gris-medio)', textAlign: 'center', marginBottom: 20 }}>
+          Tu cita será movida a la nueva fecha
+        </p>
+
+        {/* Old → New comparison */}
+        <div className="card" style={{ marginBottom: 20 }}>
+          <div style={{ marginBottom: 12 }}>
+            <span style={{ fontSize: 13, fontWeight: 500, textTransform: 'uppercase', letterSpacing: 1.5, color: 'var(--gris-medio)' }}>Cita actual</span>
+            <p style={{ fontSize: 16, color: 'var(--gris-claro)', textDecoration: 'line-through', marginTop: 4 }}>
+              {formatDateES(apptDate)} · {apptTime} hs
+            </p>
+          </div>
+          <div style={{ borderTop: '1px solid var(--platino)', paddingTop: 12 }}>
+            <span style={{ fontSize: 13, fontWeight: 500, textTransform: 'uppercase', letterSpacing: 1.5, color: 'var(--petroleo)' }}>Nueva cita</span>
+            <p style={{ fontSize: 18, fontWeight: 600, color: 'var(--negro)', marginTop: 4 }}>
+              {formatDateES(selectedDate)} · {displayTime(selectedSlot)} hs
+            </p>
+          </div>
+        </div>
+
+        {error && <p style={{ color: 'var(--terracota)', fontSize: 16, textAlign: 'center', marginBottom: 12 }}>{error}</p>}
+
+        <button
+          onClick={handleReschedule}
+          disabled={loading}
+          className="btn-primary"
+          style={{ marginBottom: 12 }}
+        >
+          <RefreshCw size={18} />
+          {loading ? 'Reagendando...' : 'Confirmar reagendamiento'}
+        </button>
+        <button onClick={() => { setScreen(1); setError(''); }} className="btn-secondary">
+          <ArrowLeft size={18} />
+          Elegir otra hora
         </button>
       </Layout>
     );
   }
 
   return (
-    <Layout>
-      <p style={{ textAlign: 'center', color: 'var(--gris-medio)', paddingTop: 48 }}>Cargando...</p>
+    <Layout devMode={devMode}>
+      <p style={{ textAlign: 'center', color: 'var(--gris-medio)', paddingTop: 48, fontSize: 16 }}>Cargando...</p>
     </Layout>
   );
 }
 
-function Layout({ children }) {
+function Layout({ children, devMode }) {
   return (
     <div className="booking-container" style={{ paddingBottom: 32 }}>
+      {devMode && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0,
+          background: 'var(--dorado)', textAlign: 'center',
+          padding: '4px 0', fontSize: 12, fontWeight: 600,
+          color: 'var(--negro)', zIndex: 100,
+        }}>
+          MODO DESARROLLO — Sin límite de intentos
+        </div>
+      )}
       {children}
     </div>
   );

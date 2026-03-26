@@ -39,7 +39,7 @@ async function createBooking(client, date_time) {
   const endISO = new Date(new Date(`${date_time}:00-04:00`).getTime() + duration * 60 * 1000);
 
   const gcalEvent = await createEvent(calendarId, {
-    summary: `Sesión - ${client.first_name} ${client.last_name}`,
+    summary: `Terapia ${client.first_name} ${client.last_name} - ${client.phone}`,
     description: `Teléfono: ${client.phone}`,
     startDateTime: startISO,
     endDateTime: endISO.toISOString(),
@@ -195,6 +195,7 @@ router.post('/book', async (req, res) => {
         status: 'has_appointment',
         appointment: { id: appointments[0].id, date_time: appointments[0].date_time },
         client_id: client.id,
+        client_name: client.first_name,
       });
     }
 

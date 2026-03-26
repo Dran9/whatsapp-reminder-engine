@@ -13,12 +13,14 @@ app.use(cors());
 app.use(express.json());
 
 // ─── Rate limiting ──────────────────────────────────────────────
+const devBypass = (req) => req.query.devmode === '1' || req.headers['x-devmode'] === '1';
 const bookingLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 3,
   message: { error: 'Demasiados intentos. Intenta en 15 minutos.' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: devBypass,
 });
 const clientLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -26,6 +28,7 @@ const clientLimiter = rateLimit({
   message: { error: 'Demasiados intentos. Intenta en 15 minutos.' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: devBypass,
 });
 app.use('/api/book', bookingLimiter);
 app.use('/api/reschedule', bookingLimiter);

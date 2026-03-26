@@ -91,7 +91,7 @@ export default function Calendar({ onSelectDate, selectedDate, availableDays = [
         <button onClick={prevMonth} disabled={!canGoPrev} className="cal-nav-btn">
           <ChevronLeft size={16} color="var(--grafito)" />
         </button>
-        <span style={{ fontWeight: 600, fontSize: 16, color: 'var(--negro)' }}>
+        <span style={{ fontWeight: 600, fontSize: 18, color: 'var(--negro)' }}>
           {MONTH_NAMES[viewMonth]} {viewYear}
         </span>
         <button onClick={nextMonth} disabled={!canGoNext} className="cal-nav-btn">
@@ -104,7 +104,7 @@ export default function Calendar({ onSelectDate, selectedDate, availableDays = [
         {DAY_LABELS.map(d => (
           <div key={d} style={{
             textAlign: 'center',
-            fontSize: 11,
+            fontSize: 13,
             fontWeight: 500,
             textTransform: 'uppercase',
             color: 'var(--gris-medio)',
@@ -132,7 +132,7 @@ export default function Calendar({ onSelectDate, selectedDate, availableDays = [
               style={{
                 height: 44,
                 borderRadius: 10,
-                fontSize: 14,
+                fontSize: 16,
                 fontWeight: selected ? 700 : (enabled && withSlots) ? 700 : enabled ? 500 : 400,
                 border: todayCell && !selected ? '1.5px solid var(--arena)' : 'none',
                 background: selected ? 'var(--negro)' : 'transparent',
