@@ -48,12 +48,17 @@ app.post('/api/webhook', async (req, res) => {
   const body = req.body;
   if (body.object !== 'whatsapp_business_account') return res.sendStatus(404);
 
+  let lastFrom = null;
+  let lastPayload = null;
+
   for (const entry of body.entry || []) {
     for (const change of entry.changes || []) {
       const messages = change.value?.messages || [];
       for (const msg of messages) {
         const from = msg.from;
         const payload = msg.button?.payload || msg.interactive?.button_reply?.id || '';
+        lastFrom = from;
+        lastPayload = payload;
         console.log(`[webhook] Message from ${from}, payload: ${payload}`);
 
         // Responder con mensaje para confirmar recepción del webhook
@@ -68,7 +73,7 @@ app.post('/api/webhook', async (req, res) => {
       }
     }
   }
-  res.sendStatus(200);
+  res.status(200).json({ received: true, from: lastFrom, payload: lastPayload });
 });
 
 // ─── SPA fallback ────────────────────────────────────────────
