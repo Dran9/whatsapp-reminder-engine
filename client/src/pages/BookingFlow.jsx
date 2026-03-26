@@ -12,17 +12,17 @@ const COUNTRY_CODES = [
   { code: '+54', flag: '\ud83c\udde6\ud83c\uddf7', name: 'Argentina' },
   { code: '+56', flag: '\ud83c\udde8\ud83c\uddf1', name: 'Chile' },
   { code: '+57', flag: '\ud83c\udde8\ud83c\uddf4', name: 'Colombia' },
-  { code: '+51', flag: '\ud83c\uddf5\ud83c\uddea', name: 'Per\u00fa' },
+  { code: '+51', flag: '\ud83c\uddf5\ud83c\uddea', name: 'Perú' },
   { code: '+593', flag: '\ud83c\uddea\ud83c\udde8', name: 'Ecuador' },
-  { code: '+52', flag: '\ud83c\uddf2\ud83c\uddfd', name: 'M\u00e9xico' },
-  { code: '+34', flag: '\ud83c\uddea\ud83c\uddf8', name: 'Espa\u00f1a' },
+  { code: '+52', flag: '\ud83c\uddf2\ud83c\uddfd', name: 'México' },
+  { code: '+34', flag: '\ud83c\uddea\ud83c\uddf8', name: 'España' },
   { code: '+1', flag: '\ud83c\uddfa\ud83c\uddf8', name: 'USA' },
 ];
 
 const CITIES = ['Cochabamba', 'Santa Cruz', 'La Paz', 'Sucre', 'Otro'];
 const SOURCES = ['Referencia de amigos', 'Redes sociales', 'Otro'];
 
-const DAY_NAMES_ES = ['domingo', 'lunes', 'martes', 'mi\u00e9rcoles', 'jueves', 'viernes', 's\u00e1bado'];
+const DAY_NAMES_ES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 const MONTH_NAMES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 
 function formatDateES(dateStr) {
@@ -37,15 +37,8 @@ function formatDateES(dateStr) {
 // Logo component with configurable width
 function Logo({ width = 90 }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'center' }} className={width === 120 ? 'logo' : 'logo-small'}>
-      <svg width={width} height={width * 0.55} viewBox="0 0 180 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <text x="0" y="32" fontFamily="Work Sans, sans-serif" fontWeight="600" fontSize="22" fill="#1A1A17">
-          Daniel MacLean
-        </text>
-        <text x="0" y="46" fontFamily="Work Sans, sans-serif" fontWeight="300" fontSize="11" fill="#A4A4A6" letterSpacing="2">
-          PSICOTERAPIA
-        </text>
-      </svg>
+    <div style={{ display: 'flex', justifyContent: 'center' }} className={width >= 120 ? 'logo' : 'logo-small'}>
+      <img src="/logo.svg" alt="Daniel MacLean" style={{ width, height: 'auto' }} />
     </div>
   );
 }
@@ -272,7 +265,7 @@ export default function BookingFlow() {
       <Layout>
         <Logo width={120} />
         <h1 style={{ fontSize: 30, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
-          Agenda tu sesi\u00f3n
+          Agenda tu sesión
         </h1>
         <p style={{ fontSize: 14, color: 'var(--gris-medio)', textAlign: 'center', marginBottom: 32 }}>
           Elige el horario que mejor te funcione
@@ -280,7 +273,7 @@ export default function BookingFlow() {
 
         <div className="card">
           <form onSubmit={handlePhoneSubmit}>
-            <span className="field-label">N\u00daMERO DE WHATSAPP</span>
+            <span className="field-label">NÚMERO DE WHATSAPP</span>
             <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
               {/* Country prefix selector */}
               <div style={{ position: 'relative' }}>
@@ -345,7 +338,7 @@ export default function BookingFlow() {
                   lineHeight: 1.5,
                   paddingTop: 4,
                 }}>
-                  Ingresa tu n\u00famero y presiona continuar. Te mostraremos tu cita actual con opciones para cambiarla.
+                  Ingresa tu número y presiona continuar. Te mostraremos tu cita actual con opciones para cambiarla.
                 </p>
               </div>
             </div>
@@ -373,7 +366,7 @@ export default function BookingFlow() {
       <Layout>
         <Logo width={90} />
         <h1 style={{ fontSize: 26, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
-          Cu\u00e9ntanos de ti
+          Cuéntanos de ti
         </h1>
         <p style={{ fontSize: 14, color: 'var(--gris-medio)', textAlign: 'center', marginBottom: 12 }}>
           Para brindarte la mejor experiencia
@@ -419,7 +412,7 @@ export default function BookingFlow() {
                   placeholder={`${minAge}`}
                 />
                 <p style={{ fontSize: 12, color: 'var(--gris-medio)', marginTop: 6 }}>
-                  Entre {minAge} y {maxAge} a\u00f1os
+                  Entre {minAge} y {maxAge} años
                 </p>
                 {age && (Number(age) < minAge || Number(age) > maxAge) && (
                   <p style={{ color: 'var(--terracota)', fontSize: 12, marginTop: 4 }}>
@@ -428,11 +421,11 @@ export default function BookingFlow() {
                 )}
               </div>
 
-              {/* Ciudad / Pa\u00eds */}
+              {/* Ciudad / País */}
               {isInternational ? (
                 <div>
-                  <span className="field-label">PA\u00cdS *</span>
-                  <input value={country} onChange={e => setCountry(e.target.value)} required className="input-field" placeholder="Tu pa\u00eds" />
+                  <span className="field-label">PAÍS *</span>
+                  <input value={country} onChange={e => setCountry(e.target.value)} required className="input-field" placeholder="Tu país" />
                 </div>
               ) : (
                 <div style={{ position: 'relative' }}>
@@ -458,7 +451,7 @@ export default function BookingFlow() {
 
               {/* Source */}
               <div>
-                <span className="field-label" style={{ marginBottom: 10 }}>\u00bfC\u00d3MO SUPISTE DE DANIEL? *</span>
+                <span className="field-label" style={{ marginBottom: 10 }}>¿CÓMO SUPISTE DE DANIEL? *</span>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {SOURCES.map(s => (
                     <label key={s} className="radio-option">
@@ -511,7 +504,7 @@ export default function BookingFlow() {
           Elige fecha y hora
         </h1>
         <p style={{ fontSize: 14, color: 'var(--gris-medio)', textAlign: 'center', marginBottom: 24 }}>
-          Para tu sesi\u00f3n con Daniel
+          Para tu sesión con Daniel
         </p>
 
         <div className="card" style={{ marginBottom: 16 }}>
@@ -535,7 +528,7 @@ export default function BookingFlow() {
               </p>
             ) : freeSlots.length === 0 ? (
               <p style={{ textAlign: 'center', color: 'var(--gris-medio)', padding: '24px 0' }}>
-                No hay horarios disponibles este d\u00eda
+                No hay horarios disponibles este día
               </p>
             ) : (
               <>
@@ -544,7 +537,7 @@ export default function BookingFlow() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                       <Sun size={12} color="var(--dorado)" />
                       <span style={{ fontSize: 11, fontWeight: 500, textTransform: 'uppercase', letterSpacing: 1.5, color: 'var(--gris-medio)' }}>
-                        Ma\u00f1ana
+                        Mañana
                       </span>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
@@ -616,7 +609,7 @@ export default function BookingFlow() {
       <Layout>
         <Logo width={90} />
         <h1 style={{ fontSize: 24, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
-          Confirma tu sesi\u00f3n
+          Confirma tu sesión
         </h1>
         <p style={{ fontSize: 14, color: 'var(--terracota)', textAlign: 'center', marginBottom: 24 }}>
           Revisa los detalles antes de confirmar
@@ -686,7 +679,7 @@ export default function BookingFlow() {
         </div>
 
         <h1 style={{ fontSize: 24, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
-          Tu cita est\u00e1 confirmada
+          Tu cita está confirmada
         </h1>
         <p style={{ fontSize: 14, color: 'var(--turquesa)', textAlign: 'center', marginBottom: 24 }}>
           Gracias por tu confianza
@@ -720,14 +713,14 @@ export default function BookingFlow() {
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
             <MessageCircle size={18} color="var(--grafito)" style={{ flexShrink: 0, marginTop: 1 }} />
             <p style={{ fontSize: 13, color: 'var(--grafito)', lineHeight: 1.5 }}>
-              Te llegar\u00e1 un recordatorio el d\u00eda antes de tu cita.
+              Te llegará un recordatorio el día antes de tu cita.
             </p>
           </div>
           <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', marginTop: 12, paddingTop: 12 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
               <TriangleAlert size={18} color="var(--terracota)" style={{ flexShrink: 0, marginTop: 1 }} />
               <p style={{ fontSize: 13, color: 'var(--grafito)', lineHeight: 1.5 }}>
-                Toda cancelaci\u00f3n o cambio se debe hacer con m\u00ednimo <strong>6 horas</strong> de anticipaci\u00f3n, caso contrario se cobrar\u00e1 el <strong>50%</strong> del monto de la sesi\u00f3n.
+                Toda cancelación o cambio se debe hacer con mínimo <strong>6 horas</strong> de anticipación, caso contrario se cobrará el <strong>50%</strong> del monto de la sesión.
               </p>
             </div>
           </div>
@@ -779,7 +772,7 @@ export default function BookingFlow() {
 
         <div className="card" style={{ marginBottom: 24 }}>
           <p style={{ fontSize: 12, color: 'var(--gris-medio)', marginBottom: 12 }}>
-            Tu cita est\u00e1 agendada para el:
+            Tu cita está agendada para el:
           </p>
           <div className="detail-row" style={{ paddingTop: 0, borderTop: 'none' }}>
             <div className="detail-icon">
@@ -795,7 +788,7 @@ export default function BookingFlow() {
         </div>
 
         <p style={{ fontSize: 15, fontWeight: 500, textAlign: 'center', color: 'var(--negro)', marginBottom: 16 }}>
-          \u00bfQu\u00e9 deseas hacer?
+          ¿Qué deseas hacer?
         </p>
 
         <button
