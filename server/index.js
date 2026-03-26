@@ -55,6 +55,16 @@ app.post('/api/webhook', async (req, res) => {
         const from = msg.from;
         const payload = msg.button?.payload || msg.interactive?.button_reply?.id || '';
         console.log(`[webhook] Message from ${from}, payload: ${payload}`);
+
+        // Responder con mensaje para confirmar recepción del webhook
+        if (payload) {
+          const { sendTextMessage } = require('./services/whatsapp');
+          try {
+            await sendTextMessage(from, `✅ Webhook recibido! Payload: "${payload}"`);
+          } catch (err) {
+            console.error(`[webhook] Error sending reply to ${from}:`, err.message);
+          }
+        }
       }
     }
   }

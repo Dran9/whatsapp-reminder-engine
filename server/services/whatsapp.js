@@ -59,4 +59,27 @@ async function sendConfirmationTemplate(phone, nombre, fechaISO) {
   return data;
 }
 
-module.exports = { sendConfirmationTemplate };
+async function sendTextMessage(phone, text) {
+  const token = process.env.WA_TOKEN;
+  const phoneNumberId = process.env.WA_PHONE_ID;
+
+  const response = await fetch(`${GRAPH_API_URL}/${phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to: phone,
+      type: 'text',
+      text: { body: text }
+    })
+  });
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(`WhatsApp API error ${response.status}: ${JSON.stringify(data)}`);
+  return data;
+}
+
+module.exports = { sendConfirmationTemplate, sendTextMessage };
