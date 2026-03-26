@@ -1,16 +1,26 @@
 {
   "name": "whatsapp-reminder-engine",
-  "version": "1.0.0",
-  "description": "Motor de recordatorios via WhatsApp basado en eventos de Google Calendar",
-  "main": "src/index.js",
+  "version": "2.0.0",
+  "description": "Booking app + reminder engine for Daniel MacLean",
+  "main": "server/index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "start": "node server/index.js",
+    "dev": "concurrently \"node --watch server/index.js\" \"cd client && npx vite\"",
+    "build": "cd client && npm install && npm run build",
+    "start:render": "node src/index.js",
+    "dev:render": "node --watch src/index.js"
   },
   "dependencies": {
     "better-sqlite3": "^11.7.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
     "express": "^4.21.0",
     "googleapis": "^144.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.11.0",
     "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
   }
 }

@@ -1,0 +1,69 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --negro: #1A1A17;
+  --hueso: #FAF8F1;
+  --arena: #D4D1CB;
+  --blanco-gris: #F0EEF0;
+  --gris-claro: #C5C2C0;
+  --gris-medio: #A4A4A6;
+  --azul-acero: #4E769B;
+  --terracota: #B34E35;
+  --dorado: #FDDA78;
+  --turquesa: #38B1B1;
+}
+
+body {
+  font-family: 'Work Sans', system-ui, sans-serif;
+  background-color: var(--hueso);
+  color: var(--negro);
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+input, select, button {
+  font-family: inherit;
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-azul-acero text-white font-semibold py-3.5 px-6 rounded-xl
+           transition-all duration-200 hover:opacity-90 active:scale-[0.98]
+           disabled:opacity-50 disabled:cursor-not-allowed;
+    min-height: 52px;
+    font-size: 16px;
+  }
+  .btn-secondary {
+    @apply bg-turquesa text-white font-semibold py-3.5 px-6 rounded-xl
+           transition-all duration-200 hover:opacity-90 active:scale-[0.98];
+    min-height: 52px;
+    font-size: 16px;
+  }
+  .btn-danger {
+    @apply bg-terracota text-white font-semibold py-3.5 px-6 rounded-xl
+           transition-all duration-200 hover:opacity-90 active:scale-[0.98];
+    min-height: 52px;
+    font-size: 16px;
+  }
+  .input-field {
+    @apply w-full py-3.5 px-4 rounded-xl border border-arena bg-blanco-gris
+           text-negro placeholder-gris-medio outline-none
+           transition-colors duration-200 focus:border-azul-acero;
+    min-height: 52px;
+    font-size: 16px;
+  }
+  .card {
+    @apply bg-white rounded-2xl p-6 shadow-[0_2px_8px_rgba(0,0,0,0.06)];
+  }
+}
+
+@keyframes checkmark {
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-checkmark {
+  animation: checkmark 0.5s ease-out forwards;
+}
