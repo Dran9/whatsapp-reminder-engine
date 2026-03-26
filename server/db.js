@@ -1,3 +1,6 @@
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first');
+
 const mysql = require('mysql2/promise');
 
 let pool;
@@ -9,7 +12,6 @@ function getPool() {
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME,
-      family: 4,
       waitForConnections: true,
       connectionLimit: 10,
       timezone: '-04:00',
