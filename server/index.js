@@ -6,9 +6,30 @@ const cors = require('cors');
 const { initDB } = require('./db');
 const { checkAndSendReminders } = require('./services/reminder');
 
+const rateLimit = require('express-rate-limit');
+
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// ─── Rate limiting ──────────────────────────────────────────────
+const bookingLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 3,
+  message: { error: 'Demasiados intentos. Intenta en 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+const clientLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { error: 'Demasiados intentos. Intenta en 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/book', bookingLimiter);
+app.use('/api/reschedule', bookingLimiter);
+app.use('/api/client', clientLimiter);
 
 // Serve React build in production
 const distPath = path.join(__dirname, '../client/dist');

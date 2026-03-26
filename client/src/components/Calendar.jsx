@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 const MONTH_NAMES = [
@@ -8,7 +8,7 @@ const MONTH_NAMES = [
 const DAY_LABELS = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
 const DAY_MAP = { 0: 'domingo', 1: 'lunes', 2: 'martes', 3: 'miercoles', 4: 'jueves', 5: 'viernes', 6: 'sabado' };
 
-export default function Calendar({ onSelectDate, selectedDate, availableDays = [], windowDays = 10 }) {
+export default function Calendar({ onSelectDate, selectedDate, availableDays = [], windowDays = 10, daysWithSlots, onMonthChange }) {
   const today = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -32,6 +32,15 @@ export default function Calendar({ onSelectDate, selectedDate, availableDays = [
   for (let i = 0; i < startOffset; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
 
+  // Notify parent when month changes (for pre-fetching)
+  useEffect(() => {
+    if (onMonthChange) onMonthChange(viewYear, viewMonth);
+  }, [viewYear, viewMonth]);
+
+  function getDateStr(day) {
+    return `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+
   function isToday(day) {
     if (!day) return false;
     return viewYear === today.getFullYear() && viewMonth === today.getMonth() && day === today.getDate();
@@ -47,15 +56,19 @@ export default function Calendar({ onSelectDate, selectedDate, availableDays = [
     return availableDays.includes(dayName);
   }
 
+  function hasSlots(day) {
+    if (!day || !daysWithSlots) return false;
+    return daysWithSlots.has(getDateStr(day));
+  }
+
   function isSelected(day) {
     if (!day || !selectedDate) return false;
-    return selectedDate === `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return selectedDate === getDateStr(day);
   }
 
   function handleClick(day) {
     if (!isEnabled(day)) return;
-    const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    onSelectDate(dateStr);
+    onSelectDate(getDateStr(day));
   }
 
   function prevMonth() {
@@ -75,21 +88,13 @@ export default function Calendar({ onSelectDate, selectedDate, availableDays = [
     <div>
       {/* Month navigation */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <button
-          onClick={prevMonth}
-          disabled={!canGoPrev}
-          className="cal-nav-btn"
-        >
+        <button onClick={prevMonth} disabled={!canGoPrev} className="cal-nav-btn">
           <ChevronLeft size={16} color="var(--grafito)" />
         </button>
         <span style={{ fontWeight: 600, fontSize: 16, color: 'var(--negro)' }}>
           {MONTH_NAMES[viewMonth]} {viewYear}
         </span>
-        <button
-          onClick={nextMonth}
-          disabled={!canGoNext}
-          className="cal-nav-btn"
-        >
+        <button onClick={nextMonth} disabled={!canGoNext} className="cal-nav-btn">
           <ChevronRight size={16} color="var(--grafito)" />
         </button>
       </div>
@@ -117,6 +122,7 @@ export default function Calendar({ onSelectDate, selectedDate, availableDays = [
           const enabled = isEnabled(day);
           const selected = isSelected(day);
           const todayCell = isToday(day);
+          const withSlots = hasSlots(day);
 
           return (
             <button
@@ -127,10 +133,10 @@ export default function Calendar({ onSelectDate, selectedDate, availableDays = [
                 height: 44,
                 borderRadius: 10,
                 fontSize: 14,
-                fontWeight: selected ? 600 : enabled ? 500 : 400,
+                fontWeight: selected ? 700 : (enabled && withSlots) ? 700 : enabled ? 500 : 400,
                 border: todayCell && !selected ? '1.5px solid var(--arena)' : 'none',
                 background: selected ? 'var(--negro)' : 'transparent',
-                color: selected ? 'var(--hueso)' : enabled ? 'var(--negro)' : 'var(--gris-claro)',
+                color: selected ? 'var(--hueso)' : (enabled && withSlots) ? 'var(--negro)' : enabled ? 'var(--gris-medio)' : 'var(--gris-claro)',
                 cursor: enabled ? 'pointer' : 'not-allowed',
                 transition: 'all 150ms',
                 padding: '10px 0',
