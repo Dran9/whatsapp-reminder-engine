@@ -12,8 +12,9 @@ async function sendConfirmationTemplate(phone, nombre, fechaISO) {
   const date = new Date(fechaISO);
   let nombrewa = nombre.split(' ')[0];
   nombrewa = nombrewa.charAt(0).toUpperCase() + nombrewa.slice(1).toLowerCase();
-  const fechawa = getDayInSpanish(date) + ' ' + date.getDate();
-  const horawa = date.toISOString().substring(11, 16);
+  const boliviaDate = new Date(date.toLocaleString('en-US', { timeZone: 'America/La_Paz' }));
+  const fechawa = getDayInSpanish(boliviaDate) + ' ' + boliviaDate.getDate();
+  const horawa = boliviaDate.toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/La_Paz' });
 
   const payload = {
     messaging_product: 'whatsapp',
