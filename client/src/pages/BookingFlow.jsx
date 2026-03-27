@@ -335,13 +335,16 @@ export default function BookingFlow() {
       const data = await res.json();
       console.log('[reschedule] Response:', data);
       if (data.error) throw new Error(data.error);
+      // CRITICAL: set screen FIRST, before clearing appointment data
+      // If React doesn't batch (async context on some browsers), clearing
+      // oldAppointment before setScreen(5) causes Screen 7 to render with appt=null
+      console.log('[reschedule] Success — going to Screen 5');
+      setScreen(5);
+      setWasRescheduled(true);
       setBookedAppointment({ date: selectedDate, time: selectedSlot });
       setActiveAppointment(null);
       setOldAppointment(null);
       setRescheduleMode(false);
-      setWasRescheduled(true);
-      console.log('[reschedule] Success — going to Screen 5');
-      setScreen(5);
     } catch (err) {
       console.error('[reschedule] Error:', err.message);
       setError(err.message);
@@ -349,6 +352,14 @@ export default function BookingFlow() {
       setLoading(false);
     }
   }
+
+  // Safety net: if reschedule succeeded, force screen 5 (prevents race conditions)
+  useEffect(() => {
+    if (wasRescheduled && bookedAppointment && screen !== 5) {
+      console.log('[reschedule] Safety net: forcing screen to 5, was on screen', screen);
+      setScreen(5);
+    }
+  }, [wasRescheduled, bookedAppointment, screen]);
 
   useEffect(() => {
     setIsInternational(countryCode !== '+591');
@@ -891,8 +902,10 @@ export default function BookingFlow() {
   // ═══════════════════════════════════════════════════════════════
   if (screen === 6 && activeAppointment) {
     const apptDT = activeAppointment.date_time || '';
-    const apptDate = apptDT.split('T')[0];
-    const apptTime = apptDT.split('T')[1]?.substring(0, 5) || '';
+    // Convert UTC date_time from server to Bolivia time
+    const apptDateObj = new Date(apptDT);
+    const apptDate = apptDT ? apptDateObj.toLocaleDateString('sv-SE', { timeZone: 'America/La_Paz' }) : '';
+    const apptTime = apptDT ? apptDateObj.toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/La_Paz' }) : '';
 
     return (
       <Layout devMode={devMode}>
@@ -993,8 +1006,9 @@ export default function BookingFlow() {
       );
     }
     const apptDT = appt.date_time || '';
-    const apptDate = apptDT.split('T')[0];
-    const apptTime = apptDT.split('T')[1]?.substring(0, 5) || '';
+    const apptDateObj = new Date(apptDT);
+    const apptDate = apptDT ? apptDateObj.toLocaleDateString('sv-SE', { timeZone: 'America/La_Paz' }) : '';
+    const apptTime = apptDT ? apptDateObj.toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/La_Paz' }) : '';
 
     return (
       <Layout devMode={devMode}>
