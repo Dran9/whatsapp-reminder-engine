@@ -253,6 +253,14 @@ export default function BookingFlow() {
   const expectedDigits = currentCountry.digits;
   const phoneComplete = phoneDigits.length === expectedDigits;
 
+  // ─── Detect page reloads ────────────────────────────────────────
+  useEffect(() => {
+    console.log('[MOUNT] BookingFlow mounted — if you see this after clicking Confirmar, the PAGE RELOADED');
+    const handleBeforeUnload = () => console.log('[RELOAD] Page is reloading!');
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+
   // ─── Load config ──────────────────────────────────────────────
   useEffect(() => {
     fetch('/api/config/public')
@@ -907,6 +915,7 @@ export default function BookingFlow() {
         {flow.error && <p style={{ color: 'var(--terracota)', fontSize: 16, textAlign: 'center', marginBottom: 12 }}>{flow.error}</p>}
 
         <button
+          type="button"
           onClick={handleConfirm}
           disabled={flow.loading || (flow.showOnboarding && (!firstName || !lastName || !age || !source || ageOutOfRange))}
           className="btn-primary"
@@ -915,7 +924,7 @@ export default function BookingFlow() {
           <Check size={18} />
           {flow.loading ? 'Confirmando...' : 'Confirmar cita'}
         </button>
-        <button onClick={() => dispatch({ type: 'GO_BACK', screen: 2 })} className="btn-secondary">
+        <button type="button" onClick={() => dispatch({ type: 'GO_BACK', screen: 2 })} className="btn-secondary">
           <ArrowLeft size={18} />
           Volver
         </button>
@@ -1056,6 +1065,7 @@ export default function BookingFlow() {
         </p>
 
         <button
+          type="button"
           onClick={() => dispatch({ type: 'ENTER_RESCHEDULE', oldAppointment: flow.activeAppointment })}
           className="btn-primary"
           style={{ marginBottom: 12 }}
@@ -1064,6 +1074,7 @@ export default function BookingFlow() {
           Reagendar mi cita
         </button>
         <button
+          type="button"
           onClick={() => dispatch({
             type: 'KEEP_APPOINTMENT',
             appointment: { date: apptDate, time: apptTime },
@@ -1090,7 +1101,7 @@ export default function BookingFlow() {
           <p style={{ textAlign: 'center', color: 'var(--terracota)', paddingTop: 48, fontSize: 18 }}>
             No se encontro la cita. Por favor intenta de nuevo.
           </p>
-          <button onClick={() => dispatch({ type: 'GO_BACK', screen: 1 })} className="btn-primary" style={{ marginTop: 16 }}>
+          <button type="button" onClick={() => dispatch({ type: 'GO_BACK', screen: 1 })} className="btn-primary" style={{ marginTop: 16 }}>
             Volver al calendario
           </button>
         </Layout>
@@ -1131,7 +1142,8 @@ export default function BookingFlow() {
         {flow.error && <p style={{ color: 'var(--terracota)', fontSize: 16, textAlign: 'center', marginBottom: 12 }}>{flow.error}</p>}
 
         <button
-          onClick={handleReschedule}
+          type="button"
+          onClick={(e) => { e.preventDefault(); console.log('[CLICK] Confirmar reagendamiento clicked'); handleReschedule(); }}
           disabled={flow.loading}
           className="btn-primary"
           style={{ marginBottom: 12 }}
@@ -1139,7 +1151,7 @@ export default function BookingFlow() {
           <RefreshCw size={18} />
           {flow.loading ? 'Reagendando...' : 'Confirmar reagendamiento'}
         </button>
-        <button onClick={() => dispatch({ type: 'GO_BACK', screen: 1 })} className="btn-secondary">
+        <button type="button" onClick={() => dispatch({ type: 'GO_BACK', screen: 1 })} className="btn-secondary">
           <ArrowLeft size={18} />
           Elegir otra hora
         </button>
