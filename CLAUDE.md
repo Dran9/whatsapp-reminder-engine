@@ -101,8 +101,8 @@ Ejemplo: `Terapia Daniel MacLean - 59172034151`
 - Ver `.env.example` para la lista completa
 
 ## URLs
-- Booking app: https://skyblue-rabbit-531241.hostingersite.com/agendar
-- Dev mode: https://skyblue-rabbit-531241.hostingersite.com/agendar?devmode=1
+- Booking app: https://skyblue-rabbit-531241.hostingersite.com/
+- Dev mode: https://skyblue-rabbit-531241.hostingersite.com/?devmode=1
 - API health: https://skyblue-rabbit-531241.hostingersite.com/api/health
 - Render reminders: https://whatsapp-reminder-engine.onrender.com/health
 

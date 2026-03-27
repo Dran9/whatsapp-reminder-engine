@@ -11,8 +11,7 @@ export default function App() {
   return (
     <Routes>
       {/* Public booking */}
-      <Route path="/agendar" element={<BookingFlow />} />
-      <Route path="/" element={<Navigate to="/agendar" replace />} />
+      <Route path="/" element={<BookingFlow />} />
 
       {/* Admin */}
       <Route path="/admin/login" element={<AdminLogin />} />
