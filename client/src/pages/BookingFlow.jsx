@@ -322,6 +322,7 @@ export default function BookingFlow() {
     try {
       const dateTime = `${selectedDate}T${selectedSlot}`;
       const appt = oldAppointment || activeAppointment;
+      console.log('[reschedule] Sending:', { client_id: clientId, old_appointment_id: appt?.id, date_time: dateTime });
       const res = await fetch(apiUrl('/api/reschedule'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -332,14 +333,17 @@ export default function BookingFlow() {
         }),
       });
       const data = await res.json();
+      console.log('[reschedule] Response:', data);
       if (data.error) throw new Error(data.error);
       setBookedAppointment({ date: selectedDate, time: selectedSlot });
       setActiveAppointment(null);
       setOldAppointment(null);
       setRescheduleMode(false);
       setWasRescheduled(true);
+      console.log('[reschedule] Success — going to Screen 5');
       setScreen(5);
     } catch (err) {
+      console.error('[reschedule] Error:', err.message);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -444,6 +448,7 @@ export default function BookingFlow() {
     function handleSlotClick(time) {
       setSelectedSlot(time);
       if (rescheduleMode) {
+        console.log('[reschedule] Slot picked:', time, 'oldAppointment:', oldAppointment, 'activeAppointment:', activeAppointment);
         setScreen(7);
       } else {
         setScreen(2);
@@ -941,6 +946,7 @@ export default function BookingFlow() {
 
         <button
           onClick={() => {
+            console.log('[reschedule] Entering reschedule mode, activeAppointment:', activeAppointment);
             setOldAppointment(activeAppointment);
             setRescheduleMode(true);
             setScreen(1);
@@ -968,9 +974,16 @@ export default function BookingFlow() {
   // ═══════════════════════════════════════════════════════════════
   // SCREEN 7: Confirm Reschedule (after picking new slot in reschedule mode)
   // ═══════════════════════════════════════════════════════════════
-  if (screen === 7 && (oldAppointment || activeAppointment)) {
+  if (screen === 7) {
     const appt = oldAppointment || activeAppointment;
-    const apptDT = appt.date_time || '';
+    console.log('[Screen 7] Rendering. oldAppointment:', oldAppointment, 'activeAppointment:', activeAppointment);
+    if (!appt) {
+      console.error('[Screen 7] No appointment data! Falling back to Screen 1');
+      // Fallback — should not happen but prevents blank page
+      setScreen(1);
+      setRescheduleMode(false);
+    }
+    const apptDT = appt?.date_time || '';
     const apptDate = apptDT.split('T')[0];
     const apptTime = apptDT.split('T')[1]?.substring(0, 5) || '';
 
