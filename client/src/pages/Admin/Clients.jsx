@@ -48,10 +48,17 @@ export default function Clients() {
     load();
   }
 
+  async function quickUpdate(id, data) {
+    await fetch(`/api/admin/clients/${id}`, {
+      method: 'PUT', headers: authHeaders(token), body: JSON.stringify(data),
+    });
+  }
+
   async function quickStatus(id, status) {
     await fetch(`/api/admin/clients/${id}`, {
       method: 'PUT', headers: authHeaders(token), body: JSON.stringify({ status }),
     });
+
     load();
   }
 
@@ -124,7 +131,18 @@ export default function Clients() {
                     {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </td>
-                <td className="py-2.5">Bs {c.fee}</td>
+                <td className="py-2.5">
+                  <span className="text-gris-medio text-xs mr-0.5">Bs</span>
+                  <input
+                    type="number"
+                    defaultValue={c.fee}
+                    onBlur={e => {
+                      const val = Number(e.target.value);
+                      if (val !== c.fee) quickUpdate(c.id, { fee: val });
+                    }}
+                    className="w-16 text-xs border border-arena rounded px-1.5 py-1 bg-white"
+                  />
+                </td>
                 <td className="py-2.5 text-gris-medio text-xs">{c.created_at?.split('T')[0]}</td>
                 <td className="py-2.5 space-x-2">
                   <button onClick={() => openEdit(c)} className="text-azul-acero hover:underline text-xs">Editar</button>
@@ -151,6 +169,11 @@ export default function Clients() {
           ))}
         </div>
       )}
+
+      {/* Bottom add button */}
+      <div className="flex justify-end">
+        <button onClick={openCreate} className="btn-primary !py-2 text-sm">+ Agregar cliente</button>
+      </div>
 
       {/* Edit/Create Modal */}
       {(editing || creating) && (

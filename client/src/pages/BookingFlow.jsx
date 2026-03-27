@@ -16,9 +16,9 @@ const COUNTRY_CODES = [
   { code: '+54', flag: '\u{1F1E6}\u{1F1F7}', name: 'Argentina', digits: 10 },
   { code: '+56', flag: '\u{1F1E8}\u{1F1F1}', name: 'Chile', digits: 9 },
   { code: '+57', flag: '\u{1F1E8}\u{1F1F4}', name: 'Colombia', digits: 10 },
-  { code: '+51', flag: '\u{1F1F5}\u{1F1EA}', name: 'Peru', digits: 9 },
+  { code: '+51', flag: '\u{1F1F5}\u{1F1EA}', name: 'Perú', digits: 9 },
   { code: '+593', flag: '\u{1F1EA}\u{1F1E8}', name: 'Ecuador', digits: 9 },
-  { code: '+52', flag: '\u{1F1F2}\u{1F1FD}', name: 'Mexico', digits: 10 },
+  { code: '+52', flag: '\u{1F1F2}\u{1F1FD}', name: 'México', digits: 10 },
   { code: '+34', flag: '\u{1F1EA}\u{1F1F8}', name: 'España', digits: 9 },
   { code: '+1', flag: '\u{1F1FA}\u{1F1F8}', name: 'USA', digits: 10 },
 ];
@@ -26,7 +26,7 @@ const COUNTRY_CODES = [
 const CITIES = ['Cochabamba', 'Santa Cruz', 'La Paz', 'Sucre', 'Otro'];
 const SOURCES = ['Referencia de amigos', 'Redes sociales', 'Otro'];
 
-const DAY_NAMES_ES = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+const DAY_NAMES_ES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 const MONTH_NAMES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 
 function formatDateES(dateStr) {
@@ -79,13 +79,6 @@ const initialFlowState = {
 };
 
 function flowReducer(state, action) {
-  console.log(`[FLOW] ${action.type}`, { prevScreen: state.screen, rescheduleMode: state.rescheduleMode, oldAppt: !!state.oldAppointment, action });
-  const next = _flowReducer(state, action);
-  console.log(`[FLOW] => screen=${next.screen}, rescheduleMode=${next.rescheduleMode}, oldAppt=${!!next.oldAppointment}, booked=${!!next.bookedAppointment}`);
-  return next;
-}
-
-function _flowReducer(state, action) {
   switch (action.type) {
     // ─── Slot picked on calendar ─────────────────────────
     case 'PICK_SLOT':
@@ -252,14 +245,6 @@ export default function BookingFlow() {
   const phoneDigits = phoneNumber.replace(/\D/g, '');
   const expectedDigits = currentCountry.digits;
   const phoneComplete = phoneDigits.length === expectedDigits;
-
-  // ─── Detect page reloads ────────────────────────────────────────
-  useEffect(() => {
-    console.log('[MOUNT] BookingFlow mounted — if you see this after clicking Confirmar, the PAGE RELOADED');
-    const handleBeforeUnload = () => console.log('[RELOAD] Page is reloading!');
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, []);
 
   // ─── Load config ──────────────────────────────────────────────
   useEffect(() => {
@@ -452,20 +437,17 @@ export default function BookingFlow() {
 
   // ─── Reschedule ───────────────────────────────────────────────
   async function handleReschedule() {
-    console.log('[RESCHED] Starting. flow:', { screen: flow.screen, clientId: flow.clientId, oldAppt: flow.oldAppointment, activeAppt: flow.activeAppointment });
     dispatch({ type: 'RESCHEDULE_START' });
     try {
       const dateTime = `${selectedDate}T${selectedSlot}`;
       const appt = flow.oldAppointment || flow.activeAppointment;
-      console.log('[RESCHED] appt:', appt, 'dateTime:', dateTime);
-      if (!appt) throw new Error('No se encontro la cita original');
+      if (!appt) throw new Error('No se encontró la cita original');
 
       const body = {
         client_id: flow.clientId,
         old_appointment_id: appt.id,
         date_time: dateTime,
       };
-      console.log('[RESCHED] Sending to /api/reschedule:', body);
 
       const res = await fetch(apiUrl('/api/reschedule'), {
         method: 'POST',
@@ -473,16 +455,13 @@ export default function BookingFlow() {
         body: JSON.stringify(body),
       });
       const data = await res.json();
-      console.log('[RESCHED] Response:', res.status, data);
       if (data.error) throw new Error(data.error);
 
-      console.log('[RESCHED] SUCCESS — dispatching RESCHEDULE_SUCCESS');
       dispatch({
         type: 'RESCHEDULE_SUCCESS',
         appointment: { date: selectedDate, time: selectedSlot },
       });
     } catch (err) {
-      console.error('[RESCHED] ERROR:', err.message);
       dispatch({ type: 'RESCHEDULE_ERROR', error: err.message });
     }
   }
@@ -543,7 +522,7 @@ export default function BookingFlow() {
               <input
                 className="timezone-search"
                 style={{ paddingLeft: 36 }}
-                placeholder="Buscar pais..."
+                placeholder="Buscar país..."
                 value={tzSearch}
                 onChange={e => setTzSearch(e.target.value)}
                 autoFocus
@@ -590,7 +569,7 @@ export default function BookingFlow() {
       <Layout devMode={devMode}>
         <Logo width={120} />
         <h1 style={{ fontSize: 32, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
-          {flow.rescheduleMode ? 'Elige tu nueva hora' : 'Encuentra el momento para tu sesion'}
+          {flow.rescheduleMode ? 'Elige tu nueva hora' : 'Encuentra el momento para tu sesión'}
         </h1>
         <p style={{ fontSize: 18, color: 'var(--gris-medio)', textAlign: 'center', marginBottom: 24 }}>
           {flow.rescheduleMode ? 'Selecciona una fecha y hora para reagendar' : 'Elige una fecha y hora disponible'}
@@ -620,7 +599,7 @@ export default function BookingFlow() {
               </p>
             ) : freeSlots.length === 0 ? (
               <p style={{ textAlign: 'center', color: 'var(--gris-medio)', padding: '24px 0', fontSize: 18 }}>
-                No hay horarios disponibles este dia
+                No hay horarios disponibles este día
               </p>
             ) : (
               <>
@@ -695,15 +674,15 @@ export default function BookingFlow() {
         </div>
 
         <h1 style={{ fontSize: 28, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
-          Ingresa tu numero
+          Ingresa tu número
         </h1>
         <p style={{ fontSize: 18, color: 'var(--gris-medio)', textAlign: 'center', marginBottom: 24 }}>
-          Para confirmar tu sesion
+          Para confirmar tu sesión
         </p>
 
         <div className="card">
           <form onSubmit={(e) => { e.preventDefault(); if (phoneComplete) handlePhoneSubmit(); }}>
-            <span className="field-label">NUMERO DE WHATSAPP</span>
+            <span className="field-label">NÚMERO DE WHATSAPP</span>
             <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
               <div style={{ position: 'relative' }}>
                 <div
@@ -751,8 +730,8 @@ export default function BookingFlow() {
               marginBottom: 16,
             }}>
               {phoneComplete
-                ? `${expectedDigits}/${expectedDigits} digitos`
-                : `${phoneDigits.length}/${expectedDigits} digitos`
+                ? `${expectedDigits}/${expectedDigits} dígitos`
+                : `${phoneDigits.length}/${expectedDigits} dígitos`
               }
             </p>
 
@@ -805,8 +784,8 @@ export default function BookingFlow() {
           {flow.showOnboarding
             ? 'Completa tus datos'
             : flow.isReturning
-              ? `${flow.clientName}, que bueno verte de nuevo`
-              : 'Confirma tu sesion'}
+              ? `${flow.clientName}, qué bueno verte de nuevo`
+              : 'Confirma tu sesión'}
         </h1>
         <p style={{ fontSize: 18, color: flow.showOnboarding ? 'var(--gris-medio)' : flow.isReturning ? 'var(--turquesa)' : 'var(--terracota)', textAlign: 'center', marginBottom: 24 }}>
           {flow.showOnboarding ? 'Es tu primera vez, necesitamos algunos datos' : 'Revisa los detalles antes de confirmar'}
@@ -879,8 +858,8 @@ export default function BookingFlow() {
 
               {isInternational ? (
                 <div>
-                  <span className="field-label">PAIS *</span>
-                  <input value={country} onChange={e => setCountry(e.target.value)} className="input-field" placeholder="Tu pais" />
+                  <span className="field-label">PAÍS *</span>
+                  <input value={country} onChange={e => setCountry(e.target.value)} className="input-field" placeholder="Tu país" />
                 </div>
               ) : (
                 <div>
@@ -895,7 +874,7 @@ export default function BookingFlow() {
               )}
 
               <div>
-                <span className="field-label" style={{ marginBottom: 10 }}>¿COMO SUPISTE DE DANIEL? *</span>
+                <span className="field-label" style={{ marginBottom: 10 }}>¿CÓMO SUPISTE DE DANIEL? *</span>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {SOURCES.map(s => (
                     <label key={s} className="radio-option">
@@ -956,7 +935,7 @@ export default function BookingFlow() {
         <h1 style={{ fontSize: 28, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
           {flow.wasRescheduled
             ? (displayName ? `Perfecto ${displayName}, tu cita ha sido reagendada` : 'Tu cita ha sido reagendada')
-            : (displayName ? `${displayName}, tu cita esta confirmada` : 'Tu cita esta confirmada')}
+            : (displayName ? `${displayName}, tu cita está confirmada` : 'Tu cita está confirmada')}
         </h1>
         <p style={{ fontSize: 22, fontWeight: 600, color: 'var(--turquesa)', textAlign: 'center', marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
           <Heart size={20} color="var(--turquesa)" fill="var(--turquesa)" strokeWidth={2.5} /> Gracias por tu confianza
@@ -989,14 +968,14 @@ export default function BookingFlow() {
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
             <MessageCircle size={18} color="var(--grafito)" style={{ flexShrink: 0, marginTop: 1 }} />
             <p style={{ fontSize: 17, color: 'var(--grafito)', lineHeight: 1.5 }}>
-              Te llegara un recordatorio el dia antes de tu cita.
+              Te llegará un recordatorio el día antes de tu cita.
             </p>
           </div>
           <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', marginTop: 12, paddingTop: 12 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
               <TriangleAlert size={18} color="var(--terracota)" style={{ flexShrink: 0, marginTop: 1 }} />
               <p style={{ fontSize: 17, color: 'var(--grafito)', lineHeight: 1.5 }}>
-                Toda cancelacion o cambio se debe hacer con minimo <strong>6 horas</strong> de anticipacion, caso contrario se cobrara el <strong>50%</strong> del monto de la sesion.
+                Toda cancelación o cambio se debe hacer con mínimo <strong>6 horas</strong> de anticipación, caso contrario se cobrará el <strong>50%</strong> del monto de la sesión.
               </p>
             </div>
           </div>
@@ -1061,7 +1040,7 @@ export default function BookingFlow() {
         </div>
 
         <p style={{ fontSize: 22, fontWeight: 500, textAlign: 'center', color: 'var(--negro)', marginBottom: 16 }}>
-          ¿Que deseas hacer?
+          ¿Qué deseas hacer?
         </p>
 
         {flow.error && <p style={{ color: 'var(--terracota)', fontSize: 16, textAlign: 'center', marginBottom: 12 }}>{flow.error}</p>}
@@ -1124,7 +1103,7 @@ export default function BookingFlow() {
         <Layout devMode={devMode}>
           <Logo width={90} />
           <p style={{ textAlign: 'center', color: 'var(--terracota)', paddingTop: 48, fontSize: 18 }}>
-            No se encontro la cita. Por favor intenta de nuevo.
+            No se encontró la cita. Por favor intenta de nuevo.
           </p>
           <button type="button" onClick={() => dispatch({ type: 'GO_BACK', screen: 1 })} className="btn-primary" style={{ marginTop: 16 }}>
             Volver al calendario
@@ -1146,7 +1125,7 @@ export default function BookingFlow() {
           Confirmar reagendamiento
         </h1>
         <p style={{ fontSize: 18, color: 'var(--gris-medio)', textAlign: 'center', marginBottom: 20 }}>
-          Tu cita sera movida a la nueva fecha
+          Tu cita será movida a la nueva fecha
         </p>
 
         <div className="card" style={{ marginBottom: 20 }}>
@@ -1168,7 +1147,7 @@ export default function BookingFlow() {
 
         <button
           type="button"
-          onClick={(e) => { e.preventDefault(); console.log('[CLICK] Confirmar reagendamiento clicked'); handleReschedule(); }}
+          onClick={(e) => { e.preventDefault(); handleReschedule(); }}
           disabled={flow.loading}
           className="btn-primary"
           style={{ marginBottom: 12 }}
@@ -1201,7 +1180,7 @@ function Layout({ children, devMode }) {
           padding: '4px 0', fontSize: 14, fontWeight: 600,
           color: 'var(--negro)', zIndex: 100,
         }}>
-          DEV v2 (useReducer) — Sin limite de intentos
+          MODO DESARROLLO — Sin límite de intentos
         </div>
       )}
       {children}

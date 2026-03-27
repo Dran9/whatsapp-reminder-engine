@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
 
 const DAYS_ORDER = ['lunes','martes','miercoles','jueves','viernes','sabado','domingo'];
@@ -17,11 +17,46 @@ export default function Config() {
   const [msg, setMsg] = useState('');
   const [copyFrom, setCopyFrom] = useState(null);
   const [copyTargets, setCopyTargets] = useState([]);
+  const QR_TYPES = [
+    { key: 'qr_300', label: 'QR Bs 300' },
+    { key: 'qr_250', label: 'QR Bs 250' },
+    { key: 'qr_150', label: 'QR Bs 150' },
+    { key: 'qr_generico', label: 'QR Genérico' },
+  ];
+  const [qrPreviews, setQrPreviews] = useState({});
+  const [qrUploading, setQrUploading] = useState(null);
+  const qrRefs = useRef({});
 
   useEffect(() => {
     fetch('/api/config', { headers: authHeaders(token) })
       .then(r => r.json()).then(setCfg).catch(() => {});
+    // Load QR previews
+    for (const { key } of QR_TYPES) {
+      fetch(`/api/config/qr/${key}`).then(r => r.ok ? r.blob() : null)
+        .then(b => b && setQrPreviews(prev => ({ ...prev, [key]: URL.createObjectURL(b) })))
+        .catch(() => {});
+    }
   }, [token]);
+
+  async function uploadQr(key, file) {
+    setQrUploading(key);
+    try {
+      const fd = new FormData();
+      fd.append(key, file);
+      const res = await fetch('/api/config/qr', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: fd,
+      });
+      if (!res.ok) throw new Error('Error al subir');
+      const blob = await fetch(`/api/config/qr/${key}`).then(r => r.blob());
+      setQrPreviews(prev => ({ ...prev, [key]: URL.createObjectURL(blob) }));
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setQrUploading(null);
+    }
+  }
 
   if (!cfg) return <p className="text-gris-medio">Cargando...</p>;
 
@@ -80,7 +115,7 @@ export default function Config() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Configuración</h1>
-        <button onClick={save} disabled={saving} className="btn-primary">
+        <button type="button" onClick={save} disabled={saving} className="btn-primary !py-2 !px-4 text-sm">
           {saving ? 'Guardando...' : 'Guardar cambios'}
         </button>
       </div>
@@ -219,6 +254,41 @@ export default function Config() {
             <input type="text" value={cfg.capital_cities} onChange={e => setCfg({...cfg, capital_cities: e.target.value})} className="input-field" placeholder="Santa Cruz,La Paz" />
           </div>
         </div>
+      </div>
+
+      {/* QR de pago */}
+      <div className="card">
+        <h2 className="font-semibold text-lg mb-4">QR de pago</h2>
+        <div className="grid grid-cols-2 gap-6">
+          {QR_TYPES.map(({ key, label }) => (
+            <div key={key}>
+              <label className="block text-xs font-medium uppercase tracking-widest text-gris-medio mb-2">{label}</label>
+              {qrPreviews[key] && <img src={qrPreviews[key]} alt={label} className="w-[200px] rounded-lg border border-arena mb-2" />}
+              <input
+                ref={el => { qrRefs.current[key] = el; }}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={e => e.target.files[0] && uploadQr(key, e.target.files[0])}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => qrRefs.current[key]?.click()}
+                disabled={qrUploading === key}
+                className="btn-secondary !py-2 text-sm"
+              >
+                {qrUploading === key ? 'Subiendo...' : qrPreviews[key] ? 'Cambiar imagen' : 'Subir imagen'}
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Bottom save button */}
+      <div className="flex justify-end">
+        <button type="button" onClick={save} disabled={saving} className="btn-primary !py-2 !px-4 text-sm">
+          {saving ? 'Guardando...' : 'Guardar cambios'}
+        </button>
       </div>
     </div>
   );
