@@ -674,13 +674,13 @@ export default function BookingFlow() {
         <Logo width={90} />
         <h1 style={{ fontSize: 26, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
           {showOnboarding
-            ? 'Completa tus datos'
+            ? 'Cuéntanos de ti'
             : isReturning
               ? `${clientName}, qué bueno verte de nuevo`
               : 'Confirma tu sesión'}
         </h1>
         <p style={{ fontSize: 16, color: showOnboarding ? 'var(--gris-medio)' : isReturning ? 'var(--turquesa)' : 'var(--terracota)', textAlign: 'center', marginBottom: 24 }}>
-          {showOnboarding ? 'Es tu primera vez, necesitamos algunos datos' : 'Revisa los detalles antes de confirmar'}
+          {showOnboarding ? 'Es tu primera vez, necesitamos algunos datos para darte mejor servicio' : 'Revisa los detalles antes de confirmar'}
         </p>
 
         {/* Appointment details + Onboarding in one card */}

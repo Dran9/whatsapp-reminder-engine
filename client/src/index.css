@@ -201,11 +201,11 @@ input, select, button, textarea {
 /* Field label */
 .field-label {
   display: block;
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 1.5px;
-  color: var(--gris-medio);
+  color: #7b7b7c;
   margin-bottom: 8px;
 }
 
@@ -588,6 +588,7 @@ input, select, button, textarea {
 .onboarding-slide.open {
   max-height: 800px;
   opacity: 1;
+  overflow: visible;
 }
 
 /* Phone digit hint */

@@ -77,9 +77,7 @@ app.post('/api/webhook', (req, res) => {
   // and enters exponential backoff (delays grow to minutes/hours).
   res.sendStatus(200);
 
-  // Process asynchronously after Meta already got its 200
-  const { sendTextMessage } = require('./services/whatsapp');
-
+  // Log incoming messages (auto-reply disabled — will be replaced by QR confirmation flow)
   for (const entry of body.entry || []) {
     for (const change of entry.changes || []) {
       const messages = change.value?.messages || [];
@@ -87,12 +85,6 @@ app.post('/api/webhook', (req, res) => {
         const from = msg.from;
         const payload = msg.button?.payload || msg.interactive?.button_reply?.id || '';
         console.log(`[webhook] Message from ${from}, payload: ${payload}`);
-
-        if (payload) {
-          sendTextMessage(from, `✅ Recibido: "${payload}"`)
-            .then(() => console.log(`[webhook] Reply sent to ${from}`))
-            .catch(err => console.error(`[webhook] Reply failed for ${from}:`, err.message));
-        }
       }
     }
   }

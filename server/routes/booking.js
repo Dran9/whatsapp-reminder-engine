@@ -75,12 +75,12 @@ async function createBooking(client, date_time) {
     [client.id]
   );
 
-  // Try to send WhatsApp confirmation (non-blocking)
-  try {
-    await sendConfirmationTemplate(client.phone, client.first_name, date_time);
-  } catch (waErr) {
-    console.error('[booking] WhatsApp send failed:', waErr.message);
-  }
+  // WhatsApp confirmation disabled — will be replaced by QR-based flow
+  // try {
+  //   await sendConfirmationTemplate(client.phone, client.first_name, date_time);
+  // } catch (waErr) {
+  //   console.error('[booking] WhatsApp send failed:', waErr.message);
+  // }
 
   return {
     success: true,
