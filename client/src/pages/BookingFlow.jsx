@@ -8,7 +8,7 @@ import {
 import {
   ArrowRight, ArrowLeft, ChevronDown, Calendar as CalendarIcon,
   Clock, CalendarClock, CalendarCheck, Check, Sun, Sunset,
-  Coffee, Globe, Info, TriangleAlert, MessageCircle, AlertCircle, Search, RefreshCw
+  Coffee, Globe, Info, TriangleAlert, MessageCircle, AlertCircle, Search, RefreshCw, Heart
 } from 'lucide-react';
 
 const COUNTRY_CODES = [
@@ -829,8 +829,8 @@ export default function BookingFlow() {
             ? (displayName ? `Perfecto ${displayName}, tu cita ha sido reagendada` : 'Tu cita ha sido reagendada')
             : (displayName ? `${displayName}, tu cita está confirmada` : 'Tu cita está confirmada')}
         </h1>
-        <p style={{ fontSize: 16, color: 'var(--turquesa)', textAlign: 'center', marginBottom: 24 }}>
-          {wasRescheduled ? 'Tu nueva cita queda así' : 'Gracias por tu confianza'}
+        <p style={{ fontSize: 16, color: 'var(--turquesa)', textAlign: 'center', marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <Heart size={16} color="var(--turquesa)" /> Gracias por tu confianza
         </p>
 
         {bookedAppointment && (

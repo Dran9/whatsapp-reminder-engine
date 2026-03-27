@@ -105,8 +105,21 @@ async function start() {
     console.log(`[server] Running on port ${PORT}`);
   });
 
-  // Reminder check every hour
-  setInterval(checkAndSendReminders, 60 * 60 * 1000);
+  // Daily reminder at 18:40 Bolivia time (America/La_Paz, UTC-4)
+  function scheduleReminder() {
+    const now = new Date();
+    const boliviaNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/La_Paz' }));
+    const target = new Date(boliviaNow);
+    target.setHours(18, 40, 0, 0);
+    if (boliviaNow >= target) target.setDate(target.getDate() + 1);
+    const msUntil = target.getTime() - boliviaNow.getTime();
+    console.log(`[reminder] Next run in ${Math.round(msUntil / 60000)} min (18:40 BOT)`);
+    setTimeout(() => {
+      checkAndSendReminders();
+      scheduleReminder();
+    }, msUntil);
+  }
+  scheduleReminder();
 }
 
 start().catch(err => {
