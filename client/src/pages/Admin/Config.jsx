@@ -19,7 +19,7 @@ export default function Config() {
   const [copyTargets, setCopyTargets] = useState([]);
 
   useEffect(() => {
-    fetch('/api/admin/config', { headers: authHeaders(token) })
+    fetch('/api/config', { headers: authHeaders(token) })
       .then(r => r.json()).then(setCfg).catch(() => {});
   }, [token]);
 
@@ -61,7 +61,7 @@ export default function Config() {
     setSaving(true);
     setMsg('');
     try {
-      const res = await fetch('/api/admin/config', {
+      const res = await fetch('/api/config', {
         method: 'PUT',
         headers: authHeaders(token),
         body: JSON.stringify(cfg),

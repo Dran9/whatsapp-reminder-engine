@@ -5,6 +5,18 @@ function authHeaders(token) {
   return { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
 }
 
+function toBoliviaTime(isoStr) {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  return d.toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/La_Paz' });
+}
+
+function toBoliviaDate(isoStr) {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  return d.toLocaleDateString('sv-SE', { timeZone: 'America/La_Paz' });
+}
+
 export default function Dashboard() {
   const { token } = useOutletContext();
   const [todayAppts, setTodayAppts] = useState([]);
@@ -28,7 +40,7 @@ export default function Dashboard() {
   // Group week by day
   const weekByDay = {};
   for (const a of weekAppts) {
-    const day = a.date_time?.split('T')[0] || 'unknown';
+    const day = toBoliviaDate(a.date_time) || 'unknown';
     weekByDay[day] = (weekByDay[day] || 0) + 1;
   }
 
@@ -45,7 +57,7 @@ export default function Dashboard() {
           <div className="space-y-2">
             {todayAppts.map(a => (
               <div key={a.id} className="flex justify-between items-center py-2 border-b border-blanco-gris last:border-0">
-                <span className="font-medium">{a.date_time?.split('T')[1]?.substring(0, 5)} hs</span>
+                <span className="font-medium">{toBoliviaTime(a.date_time)} hs</span>
                 <span>{a.first_name} {a.last_name}</span>
                 <span className={`text-xs px-2 py-1 rounded-full ${
                   a.status === 'Confirmada' ? 'bg-azul-acero/10 text-azul-acero' :
