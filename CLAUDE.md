@@ -42,6 +42,13 @@ Antes de hacer cambios de deploy o webhooks, LEE estos archivos:
 - Siempre escribir los caracteres directamente: ó, é, í, á, ú, ñ, ¿, ¡
 - Esto es CRÍTICO — los escapes se renderizan como texto literal en el browser
 
+### Buttons y state en React
+- SIEMPRE poner `type="button"` en todo `<button>` que NO sea submit de form. Sin esto, el browser default es `type="submit"` → page reload → React state se borra. Esto causó un bug de 5 horas.
+- Cuando el usuario dice "el state se resetea" o "vuelve a la pantalla 1", lo PRIMERO que hay que sospechar es un page reload, NO un bug de React state. Agregar `console.log('[MOUNT]')` en useEffect y listener `beforeunload` para confirmar.
+- BookingFlow usa `useReducer` (NO múltiples useState). Las transiciones de screen son atómicas: un solo dispatch cambia screen + datos asociados. NUNCA volver a separar en múltiples useState.
+- Screen 6 (ya tiene cita) muestra la cita existente Y el nuevo slot elegido. El botón "Reagendar" llama a `/api/reschedule` DIRECTAMENTE — NO manda de vuelta al calendario. Esto fue un bug: había dos pantallas de confirmación redundantes (Screen 6 y Screen 7), y Screen 6 mandaba al calendario cuando el usuario ya había elegido slot.
+- `toISOString()` devuelve UTC. Para mostrar horas en Bolivia SIEMPRE usar `toLocaleTimeString('es-BO', { timeZone: 'America/La_Paz' })`. Esto aplica tanto en el client como en el server (WhatsApp templates).
+
 ### Estilo de código y diseño
 - Fonts: ya están subidos +2pt respecto al diseño original. No bajarlos.
 - Mobile: padding 12px en móvil, 24px en >=520px. No agregar más margen.
