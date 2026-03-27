@@ -106,26 +106,29 @@ Ejemplo: `Terapia Daniel MacLean - 59172034151`
 - API health: https://skyblue-rabbit-531241.hostingersite.com/api/health
 - Render reminders: https://whatsapp-reminder-engine.onrender.com/health
 
-## Bug reschedule Screen 5 — FIX APLICADO (commit a87447c, pendiente verificar)
+## Estado actual (2026-03-27)
 
-### Qué se hizo (2026-03-27)
-- **Causa raíz**: `setOldAppointment(null)` se llamaba ANTES de `setScreen(5)` en `handleReschedule()`. En async callbacks, React puede no hacer batch de setState en ciertos browsers/móvil, causando render intermedio donde Screen 7 tiene `appt=null`
-- **Fix 1**: Reordenamiento — `setScreen(5)` ahora va PRIMERO, antes de limpiar appointment data
-- **Fix 2**: useEffect safety net: `if (wasRescheduled && bookedAppointment && screen !== 5) setScreen(5)`
-- **Fix 3**: Timezone corregido en Screen 6 y Screen 7 (antes mostraban UTC, ahora usan `toLocaleTimeString` con `timeZone: 'America/La_Paz'`)
-- **Estado**: Build + push hecho. FALTA que Daniel verifique en móvil/incógnito. Si sigue fallando, siguiente paso: usar `useReducer` en vez de múltiples useState
+### Resuelto
+- **Bug reschedule**: Causa raíz era `type="button"` faltante en todos los `<button>`. Refactoreado a useReducer + type=button. Funciona.
+- **Recordatorio WhatsApp**: Implementado y probado. Cron diario 18:40 BOT para citas de mañana. Template `recordatorionovum26` con 3 botones (Confirmo asistencia, Reagendar, Hablar con Daniel).
+- **Trigger manual**: Dashboard admin tiene botones "Hoy" y "Mañana" → `GET /api/admin/test-reminder?date=today|tomorrow`
+- **Timezone en reminder**: Corregido — `whatsapp.js` usaba `toISOString()` (UTC), ahora usa `toLocaleTimeString` con America/La_Paz
+- **QR upload**: 4 slots (Bs 300, 250, 150, Genérico) en Config.jsx + server acepta qr_300/qr_250/qr_150/qr_generico
+- **Botones admin**: CSS class `btn-sm` (width:auto, padding pequeño). Aplicado en Config, Clients, Dashboard.
+- **Fee editable inline**: En tabla de clientes, campo arancel editable directo (no solo en modal)
+- **Config API**: usa `/api/config` (NO `/api/admin/config`)
 
-## Otros pendientes
+### Pendiente
+- **Respuestas a botones del template WhatsApp**: Webhook recibe payloads (CONFIRM_NOW, REAGEN_NOW, DANIEL_NOW) pero no responde nada aún. Daniel decidirá qué mensaje enviar para cada botón.
+- **QR por arancel en WhatsApp**: Enviar QR de pago correspondiente al confirmar cita
+- **Dashboard métricas**: Cortes por ciudad, número de sesiones, reagendamientos, tipo de dispositivo
+- **Device tracking**: Guardar tipo de dispositivo del cliente ("solo si es fácil")
 
-### Admin panel
-- **Guardar cambios**: botón demasiado grande, va de extremo a extremo. Hacer 2 botones más pequeños (arriba y abajo) en Config.jsx
-- **Dashboard métricas**: Daniel quiere dashboard poderoso con cortes por ciudad, número de sesiones, reagendamientos, tipo de dispositivo
-- **Config API**: usa `/api/config` (NO `/api/admin/config`) — ya corregido
-
-### Funcionalidades nuevas
-- **Recordatorio diario 18:40**: WhatsApp reminder para citas del día siguiente. Daniel lo ha pedido MÚLTIPLES veces. Usar cron en Render o Hostinger
-- **QR por arancel**: subir QR de pago desde admin, enviar por WhatsApp al confirmar cita. Pendiente hasta que admin esté listo
-- **Device tracking**: guardar tipo de dispositivo del cliente ("solo si es fácil")
+### Recordatorio WhatsApp — arquitectura
+- **Cron**: `server/index.js` → setTimeout loop, ejecuta `checkAndSendReminders()` a las 18:40 BOT
+- **Lógica**: `server/services/reminder.js` → lee GCal eventos de mañana → cruza con DB (gcal_event_id + status=Confirmada) → dedup via webhooks_log (24h) → envía template
+- **Template**: `server/services/whatsapp.js` → `sendConfirmationTemplate(phone, nombre, fechaISO)` → template `recordatorionovum26` con header imagen + body (nombre, fecha, hora) + 3 quick_reply buttons
+- **Webhook**: `POST /api/webhook` → recibe respuestas de botones (payloads: CONFIRM_NOW, REAGEN_NOW, DANIEL_NOW) → actualmente solo logea, sin auto-reply
 
 ## Dueño
 Daniel MacLean — psicólogo en Cochabamba, Bolivia
