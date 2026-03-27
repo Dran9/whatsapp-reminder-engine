@@ -7,32 +7,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-    <script type="module" crossorigin src="/assets/index-DKo3a9r3.js" onerror="document.getElementById('debug').textContent='JS FAILED TO LOAD'"></script>
+    <script type="module" crossorigin src="/assets/index-DKo3a9r3.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-nYVYOWmG.css">
-    <script>
-      window.onerror = function(msg, src, line, col, err) {
-        var d = document.getElementById('debug');
-        d.style.display = 'block';
-        d.textContent = 'ERROR: ' + msg + ' | File: ' + src + ' | Line: ' + line;
-        return false;
-      };
-      window.addEventListener('unhandledrejection', function(e) {
-        var d = document.getElementById('debug');
-        d.style.display = 'block';
-        d.textContent = 'PROMISE ERROR: ' + (e.reason ? e.reason.message || e.reason : 'unknown');
-      });
-      setTimeout(function() {
-        var root = document.getElementById('root');
-        if (root && !root.hasChildNodes()) {
-          var d = document.getElementById('debug');
-          d.style.display = 'block';
-          d.textContent += ' | ROOT EMPTY after 5s - React did not mount';
-        }
-      }, 5000);
-    </script>
   </head>
   <body>
     <div id="root"></div>
-    <div id="debug" style="display:none;position:fixed;bottom:0;left:0;right:0;background:red;color:white;padding:16px;font-family:monospace;font-size:14px;z-index:99999"></div>
   </body>
 </html>
