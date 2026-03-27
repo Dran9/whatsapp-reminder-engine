@@ -683,8 +683,8 @@ export default function BookingFlow() {
           {showOnboarding ? 'Es tu primera vez, necesitamos algunos datos' : 'Revisa los detalles antes de confirmar'}
         </p>
 
-        {/* Appointment details */}
-        <div className="card" style={{ marginBottom: showOnboarding ? 16 : 20 }}>
+        {/* Appointment details + Onboarding in one card */}
+        <div className="card" style={{ marginBottom: 20 }}>
           <div className="detail-row" style={{ paddingTop: 0 }}>
             <div className="detail-icon">
               <CalendarIcon size={18} color="var(--gris-medio)" />
@@ -694,20 +694,23 @@ export default function BookingFlow() {
               <div className="detail-value">{formatDateES(selectedDate)}</div>
             </div>
           </div>
-          <div className="detail-row" style={{ paddingBottom: 0 }}>
+          <div className="detail-row" style={{ paddingBottom: showOnboarding ? 16 : 0 }}>
             <div className="detail-icon">
               <Clock size={18} color="var(--gris-medio)" />
             </div>
             <div>
               <div className="detail-label">Hora</div>
               <div className="detail-value">{displayTime(selectedSlot)} hs</div>
+              {selectedTz.tz !== 'America/La_Paz' && (
+                <div style={{ fontSize: 14, color: 'var(--gris-medio)', marginTop: 2 }}>
+                  Zona: {selectedTz.flag} {selectedTz.label}
+                </div>
+              )}
             </div>
           </div>
-        </div>
 
-        {/* Onboarding fields (slide in if needed) */}
-        <div className={`onboarding-slide ${showOnboarding ? 'open' : ''}`}>
-          <div className="card" style={{ marginBottom: 20 }}>
+          {/* Onboarding fields (slide in if needed) */}
+          <div className={`onboarding-slide ${showOnboarding ? 'open' : ''}`}>
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               gap: 6, marginBottom: 16,
