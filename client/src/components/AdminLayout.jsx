@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Outlet, NavLink, Navigate } from 'react-router-dom';
 
 const NAV_ITEMS = [
   { to: '/admin', label: 'Dashboard', end: true },
@@ -9,14 +9,9 @@ const NAV_ITEMS = [
 ];
 
 export default function AdminLayout() {
-  const navigate = useNavigate();
   const [token, setToken] = useState(() => localStorage.getItem('admin_token'));
 
-  useEffect(() => {
-    if (!token) navigate('/admin/login');
-  }, [token, navigate]);
-
-  if (!token) return null;
+  if (!token) return <Navigate to="/admin/login" replace />;
 
   return (
     <div className="min-h-screen bg-hueso">
