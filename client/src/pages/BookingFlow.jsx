@@ -102,6 +102,12 @@ export default function BookingFlow() {
   // Reschedule mode (from Screen 6)
   const [rescheduleMode, setRescheduleMode] = useState(false);
 
+  // Returning client (known, no active appointment)
+  const [isReturning, setIsReturning] = useState(false);
+
+  // Rescheduled flag (for success screen message)
+  const [wasRescheduled, setWasRescheduled] = useState(false);
+
   // Current country info
   const currentCountry = COUNTRY_CODES.find(c => c.code === countryCode) || COUNTRY_CODES[0];
 
@@ -221,6 +227,46 @@ export default function BookingFlow() {
     return devMode ? `${path}${path.includes('?') ? '&' : '?'}devmode=1` : path;
   }
 
+  // ─── Check client status after phone entry ──────────────────────
+  async function handlePhoneSubmit() {
+    setLoading(true);
+    setError('');
+    try {
+      const phone = countryCode.replace('+', '') + phoneDigits;
+      const res = await fetch(apiUrl('/api/client/check'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      if (data.status === 'has_appointment') {
+        setActiveAppointment(data.appointment);
+        setClientId(data.client_id);
+        setClientName(data.client_name);
+        setScreen(6);
+        return;
+      }
+
+      if (data.status === 'returning') {
+        setClientName(data.client_name);
+        setClientId(data.client_id);
+        setIsReturning(true);
+        setScreen(3);
+        return;
+      }
+
+      // status === 'new' → needs onboarding
+      setShowOnboarding(true);
+      setScreen(3);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   // ─── Book (unified endpoint) ──────────────────────────────────
   async function handleBook(onboarding = null) {
     setLoading(true);
@@ -288,6 +334,7 @@ export default function BookingFlow() {
       setBookedAppointment({ date: selectedDate, time: selectedSlot });
       setActiveAppointment(null);
       setRescheduleMode(false);
+      setWasRescheduled(true);
       setScreen(5);
     } catch (err) {
       setError(err.message);
@@ -330,7 +377,7 @@ export default function BookingFlow() {
       : TIMEZONE_GROUPS;
 
     return (
-      <div style={{ width: '100%', marginTop: 16 }}>
+      <div style={{ width: '100%', marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <button
             className="timezone-selector"
@@ -341,6 +388,9 @@ export default function BookingFlow() {
             <ChevronDown size={12} />
           </button>
         </div>
+        <p style={{ fontSize: 12, color: 'var(--gris-medio)', textAlign: 'center', marginTop: 6 }}>
+          Horarios en tu zona · Cambiar zona horaria
+        </p>
 
         {showTzDropdown && (
           <div className="timezone-dropdown" onClick={e => e.stopPropagation()}>
@@ -419,6 +469,9 @@ export default function BookingFlow() {
 
         {selectedDate && (
           <div className="card">
+            {/* TIMEZONE-SELECTOR-POSITION — move this block to reposition */}
+            <TimezoneSelector />
+
             <h2 style={{ fontSize: 17, fontWeight: 600, color: 'var(--negro)', marginBottom: 16 }}>
               {formatDateES(selectedDate)}
             </h2>
@@ -488,7 +541,6 @@ export default function BookingFlow() {
           </div>
         )}
 
-        <TimezoneSelector />
         <ProgressDots current={1} />
       </Layout>
     );
@@ -521,7 +573,7 @@ export default function BookingFlow() {
         </p>
 
         <div className="card">
-          <form onSubmit={(e) => { e.preventDefault(); if (phoneComplete) setScreen(3); }}>
+          <form onSubmit={(e) => { e.preventDefault(); if (phoneComplete) handlePhoneSubmit(); }}>
             <span className="field-label">NÚMERO DE WHATSAPP</span>
             <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
               <div style={{ position: 'relative' }}>
@@ -577,9 +629,9 @@ export default function BookingFlow() {
 
             {error && <p style={{ color: 'var(--terracota)', fontSize: 16, marginBottom: 12 }}>{error}</p>}
 
-            <button type="submit" disabled={!phoneComplete} className="btn-primary" style={{ marginBottom: 12 }}>
-              Continuar
-              <ArrowRight size={18} />
+            <button type="submit" disabled={!phoneComplete || loading} className="btn-primary" style={{ marginBottom: 12 }}>
+              {loading ? 'Verificando...' : 'Continuar'}
+              {!loading && <ArrowRight size={18} />}
             </button>
             <button type="button" onClick={() => { setScreen(1); setError(''); }} className="btn-secondary">
               <ArrowLeft size={18} />
@@ -621,9 +673,13 @@ export default function BookingFlow() {
       <Layout devMode={devMode}>
         <Logo width={90} />
         <h1 style={{ fontSize: 26, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
-          {showOnboarding ? 'Completa tus datos' : 'Confirma tu sesión'}
+          {showOnboarding
+            ? 'Completa tus datos'
+            : isReturning
+              ? `${clientName}, qué bueno verte de nuevo`
+              : 'Confirma tu sesión'}
         </h1>
-        <p style={{ fontSize: 16, color: showOnboarding ? 'var(--gris-medio)' : 'var(--terracota)', textAlign: 'center', marginBottom: 24 }}>
+        <p style={{ fontSize: 16, color: showOnboarding ? 'var(--gris-medio)' : isReturning ? 'var(--turquesa)' : 'var(--terracota)', textAlign: 'center', marginBottom: 24 }}>
           {showOnboarding ? 'Es tu primera vez, necesitamos algunos datos' : 'Revisa los detalles antes de confirmar'}
         </p>
 
@@ -766,10 +822,12 @@ export default function BookingFlow() {
         </div>
 
         <h1 style={{ fontSize: 26, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
-          {displayName ? `${displayName}, tu cita está confirmada` : 'Tu cita está confirmada'}
+          {wasRescheduled
+            ? (displayName ? `Perfecto ${displayName}, tu cita ha sido reagendada` : 'Tu cita ha sido reagendada')
+            : (displayName ? `${displayName}, tu cita está confirmada` : 'Tu cita está confirmada')}
         </h1>
         <p style={{ fontSize: 16, color: 'var(--turquesa)', textAlign: 'center', marginBottom: 24 }}>
-          Gracias por tu confianza
+          {wasRescheduled ? 'Tu nueva cita queda así' : 'Gracias por tu confianza'}
         </p>
 
         {bookedAppointment && (
@@ -843,7 +901,7 @@ export default function BookingFlow() {
               <CalendarIcon size={18} color="var(--gris-medio)" />
             </div>
             <div>
-              <div className="detail-label">Cita actual</div>
+              <div className="detail-label" style={{ fontSize: 16, color: '#737375' }}>Cita actual</div>
               <div className="detail-value">{formatDateES(apptDate)}</div>
               <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--azul-acero)', marginTop: 2 }}>
                 {apptTime} hs
@@ -856,13 +914,13 @@ export default function BookingFlow() {
         <p style={{ fontSize: 16, color: 'var(--gris-medio)', textAlign: 'center', marginBottom: 12 }}>
           Acabas de elegir:
         </p>
-        <div className="card" style={{ marginBottom: 24, border: '1.5px solid var(--azul-acero)' }}>
+        <div className="card" style={{ marginBottom: 24, border: '1.5px solid var(--azul-acero)', background: '#FDF0AD' }}>
           <div className="detail-row" style={{ paddingTop: 0, borderTop: 'none' }}>
             <div className="detail-icon" style={{ background: 'var(--cian-light)' }}>
               <CalendarClock size={18} color="var(--petroleo)" />
             </div>
             <div>
-              <div className="detail-label">Nueva fecha</div>
+              <div className="detail-label" style={{ fontSize: 16, color: '#737375' }}>Nueva fecha</div>
               <div className="detail-value">{formatDateES(selectedDate)}</div>
               <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--petroleo)', marginTop: 2 }}>
                 {displayTime(selectedSlot)} hs
@@ -871,7 +929,7 @@ export default function BookingFlow() {
           </div>
         </div>
 
-        <p style={{ fontSize: 17, fontWeight: 500, textAlign: 'center', color: 'var(--negro)', marginBottom: 16 }}>
+        <p style={{ fontSize: 20, fontWeight: 500, textAlign: 'center', color: 'var(--negro)', marginBottom: 16 }}>
           ¿Qué deseas hacer?
         </p>
 

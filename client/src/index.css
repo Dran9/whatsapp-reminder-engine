@@ -461,12 +461,13 @@ input, select, button, textarea {
   align-items: center;
   gap: 6px;
   padding: 8px 14px;
-  background: transparent;
-  border: none;
+  background: var(--blanco-gris);
+  border: 1px solid var(--platino);
+  border-radius: 10px;
   cursor: pointer;
   font-size: 15px;
-  color: var(--gris-medio);
-  transition: color 200ms;
+  color: var(--grafito);
+  transition: color 200ms, background 200ms;
   margin: 0 auto;
 }
 

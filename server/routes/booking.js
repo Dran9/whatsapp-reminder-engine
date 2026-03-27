@@ -34,16 +34,28 @@ async function createBooking(client, date_time) {
     return { error: 'El horario ya no está disponible', status: 409 };
   }
 
-  // Create GCal event
+  // Create GCal event — both times in -04:00 (La Paz) format
   const startISO = `${date_time}:00-04:00`;
-  const endISO = new Date(new Date(`${date_time}:00-04:00`).getTime() + duration * 60 * 1000);
+  const [dateStr, timeStr] = date_time.split('T');
+  const [hh, mm] = timeStr.split(':').map(Number);
+  const totalMin = hh * 60 + mm + duration;
+  const endH = String(Math.floor(totalMin / 60) % 24).padStart(2, '0');
+  const endM = String(totalMin % 60).padStart(2, '0');
+  const endISO = `${dateStr}T${endH}:${endM}:00-04:00`;
 
-  const gcalEvent = await createEvent(calendarId, {
-    summary: `Terapia ${client.first_name} ${client.last_name} - ${client.phone}`,
-    description: `Teléfono: ${client.phone}`,
-    startDateTime: startISO,
-    endDateTime: endISO.toISOString(),
-  });
+  let gcalEvent;
+  try {
+    gcalEvent = await createEvent(calendarId, {
+      summary: `Terapia ${client.first_name} ${client.last_name} - ${client.phone}`,
+      description: `Teléfono: ${client.phone}`,
+      startDateTime: startISO,
+      endDateTime: endISO,
+    });
+    console.log(`[booking] GCal event created: ${gcalEvent.id} for ${date_time}`);
+  } catch (gcalErr) {
+    console.error('[booking] GCal create FAILED:', gcalErr.message, gcalErr.response?.data || '');
+    throw new Error('No se pudo crear el evento en Google Calendar');
+  }
 
   // Count previous appointments for session_number
   const prevAppts = await query('SELECT COUNT(*) as cnt FROM appointments WHERE client_id = ?', [client.id]);
@@ -140,6 +152,47 @@ router.post('/client', async (req, res) => {
     const client = await createClient(phone, { first_name, last_name, age, city, country, source });
     res.json({ client_id: client.id, existing: false });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── POST /client/check — Check client status before booking ────
+// Returns client status WITHOUT creating anything
+router.post('/client/check', async (req, res) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) return res.status(400).json({ error: 'Campo requerido: phone' });
+
+    const clients = await query('SELECT * FROM clients WHERE phone = ?', [phone]);
+
+    if (clients.length === 0) {
+      return res.json({ status: 'new' });
+    }
+
+    const client = clients[0];
+
+    // Check for active future appointment
+    const appointments = await query(
+      `SELECT * FROM appointments WHERE client_id = ? AND status = 'Confirmada' AND date_time > NOW() ORDER BY date_time ASC LIMIT 1`,
+      [client.id]
+    );
+
+    if (appointments.length > 0) {
+      return res.json({
+        status: 'has_appointment',
+        client_name: client.first_name,
+        client_id: client.id,
+        appointment: { id: appointments[0].id, date_time: appointments[0].date_time },
+      });
+    }
+
+    return res.json({
+      status: 'returning',
+      client_name: client.first_name,
+      client_id: client.id,
+    });
+  } catch (err) {
+    console.error('[client/check] Error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
