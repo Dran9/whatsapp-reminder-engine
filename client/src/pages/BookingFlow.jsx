@@ -838,7 +838,7 @@ export default function BookingFlow() {
             : (displayName ? `${displayName}, tu cita está confirmada` : 'Tu cita está confirmada')}
         </h1>
         <p style={{ fontSize: 20, fontWeight: 600, color: 'var(--turquesa)', textAlign: 'center', marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          <Heart size={20} color="var(--turquesa)" /> Gracias por tu confianza
+          <Heart size={20} color="var(--turquesa)" fill="var(--turquesa)" strokeWidth={2.5} /> Gracias por tu confianza
         </p>
 
         {bookedAppointment && (
@@ -978,12 +978,21 @@ export default function BookingFlow() {
     const appt = oldAppointment || activeAppointment;
     console.log('[Screen 7] Rendering. oldAppointment:', oldAppointment, 'activeAppointment:', activeAppointment);
     if (!appt) {
-      console.error('[Screen 7] No appointment data! Falling back to Screen 1');
-      // Fallback — should not happen but prevents blank page
-      setScreen(1);
-      setRescheduleMode(false);
+      // No appointment data — render a safe fallback instead of calling setState in render
+      console.error('[Screen 7] No appointment data available');
+      return (
+        <Layout devMode={devMode}>
+          <Logo width={90} />
+          <p style={{ textAlign: 'center', color: 'var(--terracota)', paddingTop: 48, fontSize: 16 }}>
+            No se encontró la cita. Por favor intenta de nuevo.
+          </p>
+          <button onClick={() => { setScreen(1); setRescheduleMode(false); }} className="btn-primary" style={{ marginTop: 16 }}>
+            Volver al calendario
+          </button>
+        </Layout>
+      );
     }
-    const apptDT = appt?.date_time || '';
+    const apptDT = appt.date_time || '';
     const apptDate = apptDT.split('T')[0];
     const apptTime = apptDT.split('T')[1]?.substring(0, 5) || '';
 
