@@ -79,6 +79,13 @@ const initialFlowState = {
 };
 
 function flowReducer(state, action) {
+  console.log(`[FLOW] ${action.type}`, { prevScreen: state.screen, rescheduleMode: state.rescheduleMode, oldAppt: !!state.oldAppointment, action });
+  const next = _flowReducer(state, action);
+  console.log(`[FLOW] => screen=${next.screen}, rescheduleMode=${next.rescheduleMode}, oldAppt=${!!next.oldAppointment}, booked=${!!next.bookedAppointment}`);
+  return next;
+}
+
+function _flowReducer(state, action) {
   switch (action.type) {
     // ─── Slot picked on calendar ─────────────────────────
     case 'PICK_SLOT':
@@ -437,30 +444,37 @@ export default function BookingFlow() {
 
   // ─── Reschedule ───────────────────────────────────────────────
   async function handleReschedule() {
+    console.log('[RESCHED] Starting. flow:', { screen: flow.screen, clientId: flow.clientId, oldAppt: flow.oldAppointment, activeAppt: flow.activeAppointment });
     dispatch({ type: 'RESCHEDULE_START' });
     try {
       const dateTime = `${selectedDate}T${selectedSlot}`;
       const appt = flow.oldAppointment || flow.activeAppointment;
+      console.log('[RESCHED] appt:', appt, 'dateTime:', dateTime);
       if (!appt) throw new Error('No se encontro la cita original');
+
+      const body = {
+        client_id: flow.clientId,
+        old_appointment_id: appt.id,
+        date_time: dateTime,
+      };
+      console.log('[RESCHED] Sending to /api/reschedule:', body);
 
       const res = await fetch(apiUrl('/api/reschedule'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          client_id: flow.clientId,
-          old_appointment_id: appt.id,
-          date_time: dateTime,
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
+      console.log('[RESCHED] Response:', res.status, data);
       if (data.error) throw new Error(data.error);
 
-      // ATOMIC: all state changes happen in one dispatch
+      console.log('[RESCHED] SUCCESS — dispatching RESCHEDULE_SUCCESS');
       dispatch({
         type: 'RESCHEDULE_SUCCESS',
         appointment: { date: selectedDate, time: selectedSlot },
       });
     } catch (err) {
+      console.error('[RESCHED] ERROR:', err.message);
       dispatch({ type: 'RESCHEDULE_ERROR', error: err.message });
     }
   }
@@ -1150,7 +1164,7 @@ function Layout({ children, devMode }) {
           padding: '4px 0', fontSize: 14, fontWeight: 600,
           color: 'var(--negro)', zIndex: 100,
         }}>
-          MODO DESARROLLO — Sin limite de intentos
+          DEV v2 (useReducer) — Sin limite de intentos
         </div>
       )}
       {children}
