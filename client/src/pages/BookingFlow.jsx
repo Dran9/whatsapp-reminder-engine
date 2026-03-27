@@ -1064,14 +1064,39 @@ export default function BookingFlow() {
           ¿Que deseas hacer?
         </p>
 
+        {flow.error && <p style={{ color: 'var(--terracota)', fontSize: 16, textAlign: 'center', marginBottom: 12 }}>{flow.error}</p>}
+
         <button
           type="button"
-          onClick={() => dispatch({ type: 'ENTER_RESCHEDULE', oldAppointment: flow.activeAppointment })}
+          onClick={() => {
+            // Reschedule directly — the user already picked a new slot
+            dispatch({ type: 'RESCHEDULE_START' });
+            const dateTime = `${selectedDate}T${selectedSlot}`;
+            fetch(apiUrl('/api/reschedule'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                client_id: flow.clientId,
+                old_appointment_id: flow.activeAppointment.id,
+                date_time: dateTime,
+              }),
+            })
+              .then(r => r.json())
+              .then(data => {
+                if (data.error) throw new Error(data.error);
+                dispatch({
+                  type: 'RESCHEDULE_SUCCESS',
+                  appointment: { date: selectedDate, time: selectedSlot },
+                });
+              })
+              .catch(err => dispatch({ type: 'RESCHEDULE_ERROR', error: err.message }));
+          }}
+          disabled={flow.loading}
           className="btn-primary"
           style={{ marginBottom: 12 }}
         >
           <RefreshCw size={18} />
-          Reagendar mi cita
+          {flow.loading ? 'Reagendando...' : 'Cambiar a esta hora'}
         </button>
         <button
           type="button"
