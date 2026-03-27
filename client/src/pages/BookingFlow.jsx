@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useReducer } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Calendar from '../components/Calendar';
 import {
@@ -12,21 +12,21 @@ import {
 } from 'lucide-react';
 
 const COUNTRY_CODES = [
-  { code: '+591', flag: '🇧🇴', name: 'Bolivia', digits: 8 },
-  { code: '+54', flag: '🇦🇷', name: 'Argentina', digits: 10 },
-  { code: '+56', flag: '🇨🇱', name: 'Chile', digits: 9 },
-  { code: '+57', flag: '🇨🇴', name: 'Colombia', digits: 10 },
-  { code: '+51', flag: '🇵🇪', name: 'Perú', digits: 9 },
-  { code: '+593', flag: '🇪🇨', name: 'Ecuador', digits: 9 },
-  { code: '+52', flag: '🇲🇽', name: 'México', digits: 10 },
-  { code: '+34', flag: '🇪🇸', name: 'España', digits: 9 },
-  { code: '+1', flag: '🇺🇸', name: 'USA', digits: 10 },
+  { code: '+591', flag: '\u{1F1E7}\u{1F1F4}', name: 'Bolivia', digits: 8 },
+  { code: '+54', flag: '\u{1F1E6}\u{1F1F7}', name: 'Argentina', digits: 10 },
+  { code: '+56', flag: '\u{1F1E8}\u{1F1F1}', name: 'Chile', digits: 9 },
+  { code: '+57', flag: '\u{1F1E8}\u{1F1F4}', name: 'Colombia', digits: 10 },
+  { code: '+51', flag: '\u{1F1F5}\u{1F1EA}', name: 'Peru', digits: 9 },
+  { code: '+593', flag: '\u{1F1EA}\u{1F1E8}', name: 'Ecuador', digits: 9 },
+  { code: '+52', flag: '\u{1F1F2}\u{1F1FD}', name: 'Mexico', digits: 10 },
+  { code: '+34', flag: '\u{1F1EA}\u{1F1F8}', name: 'España', digits: 9 },
+  { code: '+1', flag: '\u{1F1FA}\u{1F1F8}', name: 'USA', digits: 10 },
 ];
 
 const CITIES = ['Cochabamba', 'Santa Cruz', 'La Paz', 'Sucre', 'Otro'];
 const SOURCES = ['Referencia de amigos', 'Redes sociales', 'Otro'];
 
-const DAY_NAMES_ES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+const DAY_NAMES_ES = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
 const MONTH_NAMES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 
 function formatDateES(dateStr) {
@@ -56,12 +56,161 @@ function ProgressDots({ current, total = 4, done = false }) {
   );
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// REDUCER — atomic state transitions, no race conditions
+// ═══════════════════════════════════════════════════════════════════
+const initialFlowState = {
+  screen: 1,
+  loading: false,
+  error: '',
+  // Client
+  clientId: null,
+  clientName: '',
+  activeAppointment: null,
+  // Onboarding
+  showOnboarding: false,
+  isReturning: false,
+  // Reschedule
+  rescheduleMode: false,
+  oldAppointment: null,
+  wasRescheduled: false,
+  // Result
+  bookedAppointment: null,
+};
+
+function flowReducer(state, action) {
+  switch (action.type) {
+    // ─── Slot picked on calendar ─────────────────────────
+    case 'PICK_SLOT':
+      // If in reschedule mode, go to confirm reschedule (screen 7)
+      // Otherwise, go to phone input (screen 2)
+      return {
+        ...state,
+        screen: state.rescheduleMode ? 7 : 2,
+        error: '',
+      };
+
+    // ─── Phone check ─────────────────────────────────────
+    case 'PHONE_CHECK_START':
+      return { ...state, loading: true, error: '' };
+
+    case 'PHONE_HAS_APPOINTMENT':
+      return {
+        ...state,
+        loading: false,
+        screen: 6,
+        activeAppointment: action.appointment,
+        clientId: action.clientId,
+        clientName: action.clientName,
+      };
+
+    case 'PHONE_RETURNING':
+      return {
+        ...state,
+        loading: false,
+        screen: 3,
+        isReturning: true,
+        clientName: action.clientName,
+        clientId: action.clientId,
+      };
+
+    case 'PHONE_NEW':
+      return {
+        ...state,
+        loading: false,
+        screen: 3,
+        showOnboarding: true,
+      };
+
+    case 'PHONE_ERROR':
+      return { ...state, loading: false, error: action.error };
+
+    // ─── Booking ─────────────────────────────────────────
+    case 'BOOK_START':
+      return { ...state, loading: true, error: '' };
+
+    case 'BOOK_SUCCESS':
+      return {
+        ...state,
+        loading: false,
+        screen: 5,
+        bookedAppointment: action.appointment,
+        clientName: action.clientName || state.clientName,
+      };
+
+    case 'BOOK_NEEDS_ONBOARDING':
+      return { ...state, loading: false, showOnboarding: true };
+
+    case 'BOOK_HAS_APPOINTMENT':
+      return {
+        ...state,
+        loading: false,
+        screen: 6,
+        activeAppointment: action.appointment,
+        clientId: action.clientId,
+        clientName: action.clientName || state.clientName,
+      };
+
+    case 'BOOK_ERROR':
+      return { ...state, loading: false, error: action.error };
+
+    // ─── Reschedule ──────────────────────────────────────
+    case 'ENTER_RESCHEDULE':
+      // ATOMIC: save old appointment AND flip to screen 1 AND set mode
+      return {
+        ...state,
+        screen: 1,
+        rescheduleMode: true,
+        oldAppointment: action.oldAppointment,
+        error: '',
+      };
+
+    case 'RESCHEDULE_START':
+      return { ...state, loading: true, error: '' };
+
+    case 'RESCHEDULE_SUCCESS':
+      // ATOMIC: set screen 5 + clear all reschedule state + set result
+      return {
+        ...state,
+        loading: false,
+        screen: 5,
+        wasRescheduled: true,
+        bookedAppointment: action.appointment,
+        rescheduleMode: false,
+        oldAppointment: null,
+        activeAppointment: null,
+      };
+
+    case 'RESCHEDULE_ERROR':
+      return { ...state, loading: false, error: action.error };
+
+    // ─── Keep existing appointment ───────────────────────
+    case 'KEEP_APPOINTMENT':
+      return {
+        ...state,
+        screen: 5,
+        bookedAppointment: action.appointment,
+      };
+
+    // ─── Navigation ──────────────────────────────────────
+    case 'GO_BACK':
+      return { ...state, screen: action.screen, error: '' };
+
+    case 'CLEAR_ERROR':
+      return { ...state, error: '' };
+
+    default:
+      return state;
+  }
+}
+
 export default function BookingFlow() {
   const [params] = useSearchParams();
   const devMode = params.get('devmode') === '1';
-  const [screen, setScreen] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+
+  // Atomic flow state — all screen transitions go through reducer
+  const [flow, dispatch] = useReducer(flowReducer, initialFlowState);
+
   const [config, setConfig] = useState(null);
 
   // Timezone
@@ -69,15 +218,12 @@ export default function BookingFlow() {
   const [showTzDropdown, setShowTzDropdown] = useState(false);
   const [tzSearch, setTzSearch] = useState('');
 
-  // Client data
+  // Phone input (UI only — not part of flow transitions)
   const [countryCode, setCountryCode] = useState('+591');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [client, setClient] = useState(null);
-  const [clientName, setClientName] = useState('');
-  const [activeAppointment, setActiveAppointment] = useState(null);
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
 
-  // Onboarding
+  // Onboarding fields (UI only)
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [age, setAge] = useState('');
@@ -85,9 +231,8 @@ export default function BookingFlow() {
   const [country, setCountry] = useState('Bolivia');
   const [source, setSource] = useState('');
   const [isInternational, setIsInternational] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(false);
 
-  // Booking
+  // Calendar/slots (UI only)
   const [selectedDate, setSelectedDate] = useState(null);
   const [slots, setSlots] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
@@ -95,28 +240,11 @@ export default function BookingFlow() {
   const [slotsCache, setSlotsCache] = useState(new Map());
   const [prefetchDone, setPrefetchDone] = useState(false);
 
-  // Result
-  const [bookedAppointment, setBookedAppointment] = useState(null);
-  const [clientId, setClientId] = useState(null);
-
-  // Reschedule mode (from Screen 6)
-  const [rescheduleMode, setRescheduleMode] = useState(false);
-  const [oldAppointment, setOldAppointment] = useState(null); // saved copy for Screen 7
-
-  // Returning client (known, no active appointment)
-  const [isReturning, setIsReturning] = useState(false);
-
-  // Rescheduled flag (for success screen message)
-  const [wasRescheduled, setWasRescheduled] = useState(false);
-
   // Current country info
   const currentCountry = COUNTRY_CODES.find(c => c.code === countryCode) || COUNTRY_CODES[0];
-
-  // Phone validation
   const phoneDigits = phoneNumber.replace(/\D/g, '');
   const expectedDigits = currentCountry.digits;
   const phoneComplete = phoneDigits.length === expectedDigits;
-  const phoneTooLong = phoneDigits.length > expectedDigits;
 
   // ─── Load config ──────────────────────────────────────────────
   useEffect(() => {
@@ -144,7 +272,6 @@ export default function BookingFlow() {
   // ─── Pre-fetch 7 days of slots on mount ───────────────────────
   useEffect(() => {
     if (!config) return;
-
     const today = new Date();
     const dates = [];
     for (let i = 0; i < 7; i++) {
@@ -165,22 +292,19 @@ export default function BookingFlow() {
       results.forEach(r => cache.set(r.date, r.slots));
       setSlotsCache(cache);
       setPrefetchDone(true);
-
-      // Auto-select today and show its slots
       const todayStr = dates[0];
       setSelectedDate(todayStr);
       setSlots(cache.get(todayStr) || []);
     });
   }, [config]);
 
-  // ─── Check URL params (for WhatsApp links with ?t=phone) ─────
+  // ─── URL params for pre-fill ──────────────────────────────────
   useEffect(() => {
     const name = params.get('name');
     const last = params.get('last');
     const ageParam = params.get('age');
     const cityParam = params.get('city');
     const sourceParam = params.get('source');
-
     if (name) setFirstName(name);
     if (last) setLastName(last);
     if (ageParam) setAge(ageParam);
@@ -230,8 +354,7 @@ export default function BookingFlow() {
 
   // ─── Check client status after phone entry ──────────────────────
   async function handlePhoneSubmit() {
-    setLoading(true);
-    setError('');
+    dispatch({ type: 'PHONE_CHECK_START' });
     try {
       const phone = countryCode.replace('+', '') + phoneDigits;
       const res = await fetch(apiUrl('/api/client/check'), {
@@ -243,35 +366,34 @@ export default function BookingFlow() {
       if (data.error) throw new Error(data.error);
 
       if (data.status === 'has_appointment') {
-        setActiveAppointment(data.appointment);
-        setClientId(data.client_id);
-        setClientName(data.client_name);
-        setScreen(6);
+        dispatch({
+          type: 'PHONE_HAS_APPOINTMENT',
+          appointment: data.appointment,
+          clientId: data.client_id,
+          clientName: data.client_name,
+        });
         return;
       }
 
       if (data.status === 'returning') {
-        setClientName(data.client_name);
-        setClientId(data.client_id);
-        setIsReturning(true);
-        setScreen(3);
+        dispatch({
+          type: 'PHONE_RETURNING',
+          clientName: data.client_name,
+          clientId: data.client_id,
+        });
         return;
       }
 
-      // status === 'new' → needs onboarding
-      setShowOnboarding(true);
-      setScreen(3);
+      // status === 'new'
+      dispatch({ type: 'PHONE_NEW' });
     } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      dispatch({ type: 'PHONE_ERROR', error: err.message });
     }
   }
 
   // ─── Book (unified endpoint) ──────────────────────────────────
   async function handleBook(onboarding = null) {
-    setLoading(true);
-    setError('');
+    dispatch({ type: 'BOOK_START' });
     try {
       const phone = countryCode.replace('+', '') + phoneDigits;
       const dateTime = `${selectedDate}T${selectedSlot}`;
@@ -284,82 +406,64 @@ export default function BookingFlow() {
         body: JSON.stringify(body),
       });
       const data = await res.json();
-
       if (data.error) throw new Error(data.error);
 
       if (data.status === 'needs_onboarding') {
-        setShowOnboarding(true);
-        setLoading(false);
+        dispatch({ type: 'BOOK_NEEDS_ONBOARDING' });
         return;
       }
 
       if (data.status === 'has_appointment') {
-        setActiveAppointment(data.appointment);
-        setClientId(data.client_id);
-        if (data.client_name) setClientName(data.client_name);
-        setScreen(6);
-        setLoading(false);
+        dispatch({
+          type: 'BOOK_HAS_APPOINTMENT',
+          appointment: data.appointment,
+          clientId: data.client_id,
+          clientName: data.client_name,
+        });
         return;
       }
 
       if (data.status === 'booked') {
-        // Save name for success screen
-        if (onboarding) setClientName(onboarding.first_name);
-        setBookedAppointment({ date: selectedDate, time: selectedSlot });
-        setScreen(5);
+        dispatch({
+          type: 'BOOK_SUCCESS',
+          appointment: { date: selectedDate, time: selectedSlot },
+          clientName: onboarding?.first_name || flow.clientName,
+        });
       }
     } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      dispatch({ type: 'BOOK_ERROR', error: err.message });
     }
   }
 
   // ─── Reschedule ───────────────────────────────────────────────
   async function handleReschedule() {
-    setLoading(true);
-    setError('');
+    dispatch({ type: 'RESCHEDULE_START' });
     try {
       const dateTime = `${selectedDate}T${selectedSlot}`;
-      const appt = oldAppointment || activeAppointment;
-      console.log('[reschedule] Sending:', { client_id: clientId, old_appointment_id: appt?.id, date_time: dateTime });
+      const appt = flow.oldAppointment || flow.activeAppointment;
+      if (!appt) throw new Error('No se encontro la cita original');
+
       const res = await fetch(apiUrl('/api/reschedule'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          client_id: clientId,
+          client_id: flow.clientId,
           old_appointment_id: appt.id,
           date_time: dateTime,
         }),
       });
       const data = await res.json();
-      console.log('[reschedule] Response:', data);
       if (data.error) throw new Error(data.error);
-      // CRITICAL: set screen FIRST, before clearing appointment data
-      // If React doesn't batch (async context on some browsers), clearing
-      // oldAppointment before setScreen(5) causes Screen 7 to render with appt=null
-      console.log('[reschedule] Success — going to Screen 5');
-      setScreen(5);
-      setWasRescheduled(true);
-      setBookedAppointment({ date: selectedDate, time: selectedSlot });
-      setActiveAppointment(null);
-      setOldAppointment(null);
-      setRescheduleMode(false);
+
+      // ATOMIC: all state changes happen in one dispatch
+      dispatch({
+        type: 'RESCHEDULE_SUCCESS',
+        appointment: { date: selectedDate, time: selectedSlot },
+      });
     } catch (err) {
-      console.error('[reschedule] Error:', err.message);
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      dispatch({ type: 'RESCHEDULE_ERROR', error: err.message });
     }
   }
-
-  // Safety net: if reschedule succeeded, force screen 5 (prevents race conditions)
-  useEffect(() => {
-    if (wasRescheduled && bookedAppointment && screen !== 5) {
-      console.log('[reschedule] Safety net: forcing screen to 5, was on screen', screen);
-      setScreen(5);
-    }
-  }, [wasRescheduled, bookedAppointment, screen]);
 
   useEffect(() => {
     setIsInternational(countryCode !== '+591');
@@ -406,8 +510,8 @@ export default function BookingFlow() {
             <ChevronDown size={12} />
           </button>
         </div>
-        <p style={{ fontSize: 12, color: 'var(--gris-medio)', textAlign: 'center', marginTop: 6 }}>
-          Horarios en tu zona · Cambiar zona horaria
+        <p style={{ fontSize: 14, color: 'var(--gris-medio)', textAlign: 'center', marginTop: 6 }}>
+          Horarios en tu zona
         </p>
 
         {showTzDropdown && (
@@ -417,7 +521,7 @@ export default function BookingFlow() {
               <input
                 className="timezone-search"
                 style={{ paddingLeft: 36 }}
-                placeholder="Buscar país..."
+                placeholder="Buscar pais..."
                 value={tzSearch}
                 onChange={e => setTzSearch(e.target.value)}
                 autoFocus
@@ -448,32 +552,26 @@ export default function BookingFlow() {
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // SCREEN 1: Calendar + Slots (inverted flow — calendar first)
+  // SCREEN 1: Calendar + Slots
   // ═══════════════════════════════════════════════════════════════
-  if (screen === 1) {
+  if (flow.screen === 1) {
     const freeSlots = slots;
     const morningSlots = freeSlots.filter(s => s.block === 'morning');
     const afternoonSlots = freeSlots.filter(s => s.block === 'afternoon');
 
-    // If in reschedule mode and user picks a slot, go to confirm reschedule (screen 7)
     function handleSlotClick(time) {
       setSelectedSlot(time);
-      if (rescheduleMode) {
-        console.log('[reschedule] Slot picked:', time, 'oldAppointment:', oldAppointment, 'activeAppointment:', activeAppointment);
-        setScreen(7);
-      } else {
-        setScreen(2);
-      }
+      dispatch({ type: 'PICK_SLOT' });
     }
 
     return (
       <Layout devMode={devMode}>
         <Logo width={120} />
-        <h1 style={{ fontSize: 30, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
-          Encuentra el momento para tu sesión
+        <h1 style={{ fontSize: 32, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
+          {flow.rescheduleMode ? 'Elige tu nueva hora' : 'Encuentra el momento para tu sesion'}
         </h1>
-        <p style={{ fontSize: 16, color: 'var(--gris-medio)', textAlign: 'center', marginBottom: 24 }}>
-          Elige una fecha y hora disponible
+        <p style={{ fontSize: 18, color: 'var(--gris-medio)', textAlign: 'center', marginBottom: 24 }}>
+          {flow.rescheduleMode ? 'Selecciona una fecha y hora para reagendar' : 'Elige una fecha y hora disponible'}
         </p>
 
         <div className="card" style={{ marginBottom: 16 }}>
@@ -488,20 +586,19 @@ export default function BookingFlow() {
 
         {selectedDate && (
           <div className="card">
-            {/* TIMEZONE-SELECTOR-POSITION — move this block to reposition */}
             <TimezoneSelector />
 
-            <h2 style={{ fontSize: 17, fontWeight: 600, color: 'var(--negro)', marginBottom: 16 }}>
+            <h2 style={{ fontSize: 19, fontWeight: 600, color: 'var(--negro)', marginBottom: 16 }}>
               {formatDateES(selectedDate)}
             </h2>
 
             {(slotsLoading || (!prefetchDone && slots.length === 0)) ? (
-              <p style={{ textAlign: 'center', color: 'var(--gris-medio)', padding: '24px 0', fontSize: 16 }}>
+              <p style={{ textAlign: 'center', color: 'var(--gris-medio)', padding: '24px 0', fontSize: 18 }}>
                 Consultando disponibilidad...
               </p>
             ) : freeSlots.length === 0 ? (
-              <p style={{ textAlign: 'center', color: 'var(--gris-medio)', padding: '24px 0', fontSize: 16 }}>
-                No hay horarios disponibles este día
+              <p style={{ textAlign: 'center', color: 'var(--gris-medio)', padding: '24px 0', fontSize: 18 }}>
+                No hay horarios disponibles este dia
               </p>
             ) : (
               <>
@@ -509,17 +606,13 @@ export default function BookingFlow() {
                   <div style={{ marginBottom: afternoonSlots.length > 0 ? 0 : 16 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                       <Sun size={12} color="var(--dorado)" />
-                      <span style={{ fontSize: 13, fontWeight: 500, textTransform: 'uppercase', letterSpacing: 1.5, color: 'var(--gris-medio)' }}>
+                      <span style={{ fontSize: 15, fontWeight: 500, textTransform: 'uppercase', letterSpacing: 1.5, color: 'var(--gris-medio)' }}>
                         Mañana
                       </span>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                       {morningSlots.map(s => (
-                        <button
-                          key={s.time}
-                          onClick={() => handleSlotClick(s.time)}
-                          className="slot-btn"
-                        >
+                        <button key={s.time} onClick={() => handleSlotClick(s.time)} className="slot-btn">
                           {displayTime(s.time)}
                         </button>
                       ))}
@@ -538,17 +631,13 @@ export default function BookingFlow() {
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                       <Sunset size={12} color="var(--terracota)" />
-                      <span style={{ fontSize: 13, fontWeight: 500, textTransform: 'uppercase', letterSpacing: 1.5, color: 'var(--gris-medio)' }}>
+                      <span style={{ fontSize: 15, fontWeight: 500, textTransform: 'uppercase', letterSpacing: 1.5, color: 'var(--gris-medio)' }}>
                         Tarde
                       </span>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                       {afternoonSlots.map(s => (
-                        <button
-                          key={s.time}
-                          onClick={() => handleSlotClick(s.time)}
-                          className="slot-btn"
-                        >
+                        <button key={s.time} onClick={() => handleSlotClick(s.time)} className="slot-btn">
                           {displayTime(s.time)}
                         </button>
                       ))}
@@ -566,34 +655,33 @@ export default function BookingFlow() {
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // SCREEN 2: Phone Input (after selecting slot)
+  // SCREEN 2: Phone Input
   // ═══════════════════════════════════════════════════════════════
-  if (screen === 2) {
+  if (flow.screen === 2) {
     return (
       <Layout devMode={devMode}>
         <Logo width={90} />
 
-        {/* Summary of selected slot */}
         <div className="summary-card">
           <div className="summary-card-icon">
             <CalendarIcon size={20} color="var(--azul-acero)" />
           </div>
           <div>
             <div className="summary-card-text">{formatDateES(selectedDate)}</div>
-            <div className="summary-card-sub">{displayTime(selectedSlot)} hs · {selectedTz.label}</div>
+            <div className="summary-card-sub">{displayTime(selectedSlot)} hs</div>
           </div>
         </div>
 
-        <h1 style={{ fontSize: 26, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
-          Ingresa tu número
+        <h1 style={{ fontSize: 28, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
+          Ingresa tu numero
         </h1>
-        <p style={{ fontSize: 16, color: 'var(--gris-medio)', textAlign: 'center', marginBottom: 24 }}>
-          Para confirmar tu sesión
+        <p style={{ fontSize: 18, color: 'var(--gris-medio)', textAlign: 'center', marginBottom: 24 }}>
+          Para confirmar tu sesion
         </p>
 
         <div className="card">
           <form onSubmit={(e) => { e.preventDefault(); if (phoneComplete) handlePhoneSubmit(); }}>
-            <span className="field-label">NÚMERO DE WHATSAPP</span>
+            <span className="field-label">NUMERO DE WHATSAPP</span>
             <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
               <div style={{ position: 'relative' }}>
                 <div
@@ -641,18 +729,18 @@ export default function BookingFlow() {
               marginBottom: 16,
             }}>
               {phoneComplete
-                ? `✓ ${expectedDigits}/${expectedDigits} dígitos`
-                : `${phoneDigits.length}/${expectedDigits} dígitos`
+                ? `${expectedDigits}/${expectedDigits} digitos`
+                : `${phoneDigits.length}/${expectedDigits} digitos`
               }
             </p>
 
-            {error && <p style={{ color: 'var(--terracota)', fontSize: 16, marginBottom: 12 }}>{error}</p>}
+            {flow.error && <p style={{ color: 'var(--terracota)', fontSize: 16, marginBottom: 12 }}>{flow.error}</p>}
 
-            <button type="submit" disabled={!phoneComplete || loading} className="btn-primary" style={{ marginBottom: 12 }}>
-              {loading ? 'Verificando...' : 'Continuar'}
-              {!loading && <ArrowRight size={18} />}
+            <button type="submit" disabled={!phoneComplete || flow.loading} className="btn-primary" style={{ marginBottom: 12 }}>
+              {flow.loading ? 'Verificando...' : 'Continuar'}
+              {!flow.loading && <ArrowRight size={18} />}
             </button>
-            <button type="button" onClick={() => { setScreen(1); setError(''); }} className="btn-secondary">
+            <button type="button" onClick={() => dispatch({ type: 'GO_BACK', screen: 1 })} className="btn-secondary">
               <ArrowLeft size={18} />
               Elegir otra hora
             </button>
@@ -665,16 +753,16 @@ export default function BookingFlow() {
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // SCREEN 3: Confirmation (+ onboarding if needed)
+  // SCREEN 3: Confirmation + Onboarding
   // ═══════════════════════════════════════════════════════════════
-  if (screen === 3) {
+  if (flow.screen === 3) {
     const minAge = config?.min_age || 23;
     const maxAge = config?.max_age || 75;
     const ageNum = Number(age);
     const ageOutOfRange = age !== '' && (ageNum < minAge || ageNum > maxAge);
 
     function handleConfirm() {
-      if (showOnboarding) {
+      if (flow.showOnboarding) {
         handleBook({
           first_name: firstName,
           last_name: lastName,
@@ -691,18 +779,17 @@ export default function BookingFlow() {
     return (
       <Layout devMode={devMode}>
         <Logo width={90} />
-        <h1 style={{ fontSize: 26, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
-          {showOnboarding
-            ? 'Cuéntanos de ti'
-            : isReturning
-              ? `${clientName}, qué bueno verte de nuevo`
-              : 'Confirma tu sesión'}
+        <h1 style={{ fontSize: 28, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
+          {flow.showOnboarding
+            ? 'Completa tus datos'
+            : flow.isReturning
+              ? `${flow.clientName}, que bueno verte de nuevo`
+              : 'Confirma tu sesion'}
         </h1>
-        <p style={{ fontSize: 16, color: showOnboarding ? 'var(--gris-medio)' : isReturning ? 'var(--turquesa)' : 'var(--terracota)', textAlign: 'center', marginBottom: 24 }}>
-          {showOnboarding ? 'Es tu primera vez, necesitamos algunos datos para darte mejor servicio' : 'Revisa los detalles antes de confirmar'}
+        <p style={{ fontSize: 18, color: flow.showOnboarding ? 'var(--gris-medio)' : flow.isReturning ? 'var(--turquesa)' : 'var(--terracota)', textAlign: 'center', marginBottom: 24 }}>
+          {flow.showOnboarding ? 'Es tu primera vez, necesitamos algunos datos' : 'Revisa los detalles antes de confirmar'}
         </p>
 
-        {/* Appointment details + Onboarding in one card */}
         <div className="card" style={{ marginBottom: 20 }}>
           <div className="detail-row" style={{ paddingTop: 0 }}>
             <div className="detail-icon">
@@ -713,7 +800,7 @@ export default function BookingFlow() {
               <div className="detail-value">{formatDateES(selectedDate)}</div>
             </div>
           </div>
-          <div className="detail-row" style={{ paddingBottom: showOnboarding ? 16 : 0 }}>
+          <div className="detail-row" style={{ paddingBottom: flow.showOnboarding ? 16 : 0 }}>
             <div className="detail-icon">
               <Clock size={18} color="var(--gris-medio)" />
             </div>
@@ -728,14 +815,14 @@ export default function BookingFlow() {
             </div>
           </div>
 
-          {/* Onboarding fields (slide in if needed) */}
-          <div className={`onboarding-slide ${showOnboarding ? 'open' : ''}`}>
+          {/* Onboarding fields */}
+          <div className={`onboarding-slide ${flow.showOnboarding ? 'open' : ''}`}>
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               gap: 6, marginBottom: 16,
             }}>
               <Info size={12} color="var(--terracota)" />
-              <span style={{ fontSize: 14, color: 'var(--terracota)' }}>Todos los campos son obligatorios</span>
+              <span style={{ fontSize: 16, color: 'var(--terracota)' }}>Todos los campos son obligatorios</span>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -760,7 +847,7 @@ export default function BookingFlow() {
                   placeholder={`${minAge}`}
                 />
                 {ageOutOfRange ? (
-                  <p style={{ fontSize: 14, color: 'var(--terracota)', marginTop: 6, fontWeight: 500 }}>
+                  <p style={{ fontSize: 16, color: 'var(--terracota)', marginTop: 6, fontWeight: 600 }}>
                     Solo atiendo pacientes entre {minAge} y {maxAge} años
                   </p>
                 ) : (
@@ -770,8 +857,8 @@ export default function BookingFlow() {
 
               {isInternational ? (
                 <div>
-                  <span className="field-label">PAÍS *</span>
-                  <input value={country} onChange={e => setCountry(e.target.value)} className="input-field" placeholder="Tu país" />
+                  <span className="field-label">PAIS *</span>
+                  <input value={country} onChange={e => setCountry(e.target.value)} className="input-field" placeholder="Tu pais" />
                 </div>
               ) : (
                 <div>
@@ -786,14 +873,14 @@ export default function BookingFlow() {
               )}
 
               <div>
-                <span className="field-label" style={{ marginBottom: 10 }}>¿CÓMO SUPISTE DE DANIEL? *</span>
+                <span className="field-label" style={{ marginBottom: 10 }}>¿COMO SUPISTE DE DANIEL? *</span>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {SOURCES.map(s => (
                     <label key={s} className="radio-option">
                       <div className={`radio-circle ${source === s ? 'active' : ''}`}>
                         {source === s && <div className="radio-circle-inner" />}
                       </div>
-                      <span style={{ fontSize: 16 }}>{s}</span>
+                      <span style={{ fontSize: 18 }}>{s}</span>
                       <input type="radio" name="source" value={s} checked={source === s} onChange={e => setSource(e.target.value)} style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }} />
                     </label>
                   ))}
@@ -803,18 +890,18 @@ export default function BookingFlow() {
           </div>
         </div>
 
-        {error && <p style={{ color: 'var(--terracota)', fontSize: 16, textAlign: 'center', marginBottom: 12 }}>{error}</p>}
+        {flow.error && <p style={{ color: 'var(--terracota)', fontSize: 16, textAlign: 'center', marginBottom: 12 }}>{flow.error}</p>}
 
         <button
           onClick={handleConfirm}
-          disabled={loading || (showOnboarding && (!firstName || !lastName || !age || !source || ageOutOfRange))}
+          disabled={flow.loading || (flow.showOnboarding && (!firstName || !lastName || !age || !source || ageOutOfRange))}
           className="btn-primary"
           style={{ marginBottom: 12 }}
         >
           <Check size={18} />
-          {loading ? 'Confirmando...' : 'Confirmar cita'}
+          {flow.loading ? 'Confirmando...' : 'Confirmar cita'}
         </button>
-        <button onClick={() => { setScreen(2); setError(''); setShowOnboarding(false); }} className="btn-secondary">
+        <button onClick={() => dispatch({ type: 'GO_BACK', screen: 2 })} className="btn-secondary">
           <ArrowLeft size={18} />
           Volver
         </button>
@@ -827,8 +914,8 @@ export default function BookingFlow() {
   // ═══════════════════════════════════════════════════════════════
   // SCREEN 5: Success
   // ═══════════════════════════════════════════════════════════════
-  if (screen === 5) {
-    const displayName = clientName || firstName || '';
+  if (flow.screen === 5) {
+    const displayName = flow.clientName || firstName || '';
 
     return (
       <Layout devMode={devMode}>
@@ -843,16 +930,16 @@ export default function BookingFlow() {
           </div>
         </div>
 
-        <h1 style={{ fontSize: 26, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
-          {wasRescheduled
+        <h1 style={{ fontSize: 28, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
+          {flow.wasRescheduled
             ? (displayName ? `Perfecto ${displayName}, tu cita ha sido reagendada` : 'Tu cita ha sido reagendada')
-            : (displayName ? `${displayName}, tu cita está confirmada` : 'Tu cita está confirmada')}
+            : (displayName ? `${displayName}, tu cita esta confirmada` : 'Tu cita esta confirmada')}
         </h1>
-        <p style={{ fontSize: 20, fontWeight: 600, color: 'var(--turquesa)', textAlign: 'center', marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+        <p style={{ fontSize: 22, fontWeight: 600, color: 'var(--turquesa)', textAlign: 'center', marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
           <Heart size={20} color="var(--turquesa)" fill="var(--turquesa)" strokeWidth={2.5} /> Gracias por tu confianza
         </p>
 
-        {bookedAppointment && (
+        {flow.bookedAppointment && (
           <div className="card" style={{ marginBottom: 16 }}>
             <div className="detail-row" style={{ paddingTop: 0 }}>
               <div className="detail-icon">
@@ -860,7 +947,7 @@ export default function BookingFlow() {
               </div>
               <div>
                 <div className="detail-label">Fecha</div>
-                <div className="detail-value">{formatDateES(bookedAppointment.date)}</div>
+                <div className="detail-value">{formatDateES(flow.bookedAppointment.date)}</div>
               </div>
             </div>
             <div className="detail-row" style={{ paddingBottom: 0 }}>
@@ -869,7 +956,7 @@ export default function BookingFlow() {
               </div>
               <div>
                 <div className="detail-label">Hora</div>
-                <div className="detail-value">{displayTime(bookedAppointment.time)} hs</div>
+                <div className="detail-value">{displayTime(flow.bookedAppointment.time)} hs</div>
               </div>
             </div>
           </div>
@@ -878,15 +965,15 @@ export default function BookingFlow() {
         <div className="notice-box" style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
             <MessageCircle size={18} color="var(--grafito)" style={{ flexShrink: 0, marginTop: 1 }} />
-            <p style={{ fontSize: 15, color: 'var(--grafito)', lineHeight: 1.5 }}>
-              Te llegará un recordatorio el día antes de tu cita.
+            <p style={{ fontSize: 17, color: 'var(--grafito)', lineHeight: 1.5 }}>
+              Te llegara un recordatorio el dia antes de tu cita.
             </p>
           </div>
           <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', marginTop: 12, paddingTop: 12 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
               <TriangleAlert size={18} color="var(--terracota)" style={{ flexShrink: 0, marginTop: 1 }} />
-              <p style={{ fontSize: 15, color: 'var(--grafito)', lineHeight: 1.5 }}>
-                Toda cancelación o cambio se debe hacer con mínimo <strong>6 horas</strong> de anticipación, caso contrario se cobrará el <strong>50%</strong> del monto de la sesión.
+              <p style={{ fontSize: 17, color: 'var(--grafito)', lineHeight: 1.5 }}>
+                Toda cancelacion o cambio se debe hacer con minimo <strong>6 horas</strong> de anticipacion, caso contrario se cobrara el <strong>50%</strong> del monto de la sesion.
               </p>
             </div>
           </div>
@@ -900,9 +987,8 @@ export default function BookingFlow() {
   // ═══════════════════════════════════════════════════════════════
   // SCREEN 6: Already Has Appointment
   // ═══════════════════════════════════════════════════════════════
-  if (screen === 6 && activeAppointment) {
-    const apptDT = activeAppointment.date_time || '';
-    // Convert UTC date_time from server to Bolivia time
+  if (flow.screen === 6 && flow.activeAppointment) {
+    const apptDT = flow.activeAppointment.date_time || '';
     const apptDateObj = new Date(apptDT);
     const apptDate = apptDT ? apptDateObj.toLocaleDateString('sv-SE', { timeZone: 'America/La_Paz' }) : '';
     const apptTime = apptDT ? apptDateObj.toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/La_Paz' }) : '';
@@ -911,14 +997,13 @@ export default function BookingFlow() {
       <Layout devMode={devMode}>
         <Logo width={90} />
 
-        <h1 style={{ fontSize: 24, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
-          {clientName ? `${clientName}, ya tienes una cita` : 'Ya tienes una cita'}
+        <h1 style={{ fontSize: 26, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
+          {flow.clientName ? `${flow.clientName}, ya tienes una cita` : 'Ya tienes una cita'}
         </h1>
-        <p style={{ fontSize: 16, color: 'var(--gris-medio)', textAlign: 'center', marginBottom: 20 }}>
+        <p style={{ fontSize: 18, color: 'var(--gris-medio)', textAlign: 'center', marginBottom: 20 }}>
           Tu cita actual es:
         </p>
 
-        {/* Existing appointment */}
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="detail-row" style={{ paddingTop: 0, borderTop: 'none' }}>
             <div className="detail-icon">
@@ -927,15 +1012,14 @@ export default function BookingFlow() {
             <div>
               <div className="detail-label" style={{ fontSize: 16, color: '#737375' }}>Cita actual</div>
               <div className="detail-value">{formatDateES(apptDate)}</div>
-              <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--azul-acero)', marginTop: 2 }}>
+              <div style={{ fontSize: 20, fontWeight: 600, color: 'var(--azul-acero)', marginTop: 2 }}>
                 {apptTime} hs
               </div>
             </div>
           </div>
         </div>
 
-        {/* New selection they just picked */}
-        <p style={{ fontSize: 16, color: 'var(--gris-medio)', textAlign: 'center', marginBottom: 12 }}>
+        <p style={{ fontSize: 18, color: 'var(--gris-medio)', textAlign: 'center', marginBottom: 12 }}>
           Acabas de elegir:
         </p>
         <div className="card" style={{ marginBottom: 24, border: '1.5px solid var(--azul-acero)', background: '#FDF0AD' }}>
@@ -946,24 +1030,19 @@ export default function BookingFlow() {
             <div>
               <div className="detail-label" style={{ fontSize: 16, color: '#737375' }}>Nueva fecha</div>
               <div className="detail-value">{formatDateES(selectedDate)}</div>
-              <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--petroleo)', marginTop: 2 }}>
+              <div style={{ fontSize: 20, fontWeight: 600, color: 'var(--petroleo)', marginTop: 2 }}>
                 {displayTime(selectedSlot)} hs
               </div>
             </div>
           </div>
         </div>
 
-        <p style={{ fontSize: 20, fontWeight: 500, textAlign: 'center', color: 'var(--negro)', marginBottom: 16 }}>
-          ¿Qué deseas hacer?
+        <p style={{ fontSize: 22, fontWeight: 500, textAlign: 'center', color: 'var(--negro)', marginBottom: 16 }}>
+          ¿Que deseas hacer?
         </p>
 
         <button
-          onClick={() => {
-            console.log('[reschedule] Entering reschedule mode, activeAppointment:', activeAppointment);
-            setOldAppointment(activeAppointment);
-            setRescheduleMode(true);
-            setScreen(1);
-          }}
+          onClick={() => dispatch({ type: 'ENTER_RESCHEDULE', oldAppointment: flow.activeAppointment })}
           className="btn-primary"
           style={{ marginBottom: 12 }}
         >
@@ -971,10 +1050,10 @@ export default function BookingFlow() {
           Reagendar mi cita
         </button>
         <button
-          onClick={() => {
-            setBookedAppointment({ date: apptDate, time: apptTime });
-            setScreen(5);
-          }}
+          onClick={() => dispatch({
+            type: 'KEEP_APPOINTMENT',
+            appointment: { date: apptDate, time: apptTime },
+          })}
           className="btn-secondary"
         >
           <CalendarCheck size={18} />
@@ -985,26 +1064,25 @@ export default function BookingFlow() {
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // SCREEN 7: Confirm Reschedule (after picking new slot in reschedule mode)
+  // SCREEN 7: Confirm Reschedule
   // ═══════════════════════════════════════════════════════════════
-  if (screen === 7) {
-    const appt = oldAppointment || activeAppointment;
-    console.log('[Screen 7] Rendering. oldAppointment:', oldAppointment, 'activeAppointment:', activeAppointment);
+  if (flow.screen === 7) {
+    const appt = flow.oldAppointment || flow.activeAppointment;
+
     if (!appt) {
-      // No appointment data — render a safe fallback instead of calling setState in render
-      console.error('[Screen 7] No appointment data available');
       return (
         <Layout devMode={devMode}>
           <Logo width={90} />
-          <p style={{ textAlign: 'center', color: 'var(--terracota)', paddingTop: 48, fontSize: 16 }}>
-            No se encontró la cita. Por favor intenta de nuevo.
+          <p style={{ textAlign: 'center', color: 'var(--terracota)', paddingTop: 48, fontSize: 18 }}>
+            No se encontro la cita. Por favor intenta de nuevo.
           </p>
-          <button onClick={() => { setScreen(1); setRescheduleMode(false); }} className="btn-primary" style={{ marginTop: 16 }}>
+          <button onClick={() => dispatch({ type: 'GO_BACK', screen: 1 })} className="btn-primary" style={{ marginTop: 16 }}>
             Volver al calendario
           </button>
         </Layout>
       );
     }
+
     const apptDT = appt.date_time || '';
     const apptDateObj = new Date(apptDT);
     const apptDate = apptDT ? apptDateObj.toLocaleDateString('sv-SE', { timeZone: 'America/La_Paz' }) : '';
@@ -1014,41 +1092,40 @@ export default function BookingFlow() {
       <Layout devMode={devMode}>
         <Logo width={90} />
 
-        <h1 style={{ fontSize: 26, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 600, textAlign: 'center', color: 'var(--negro)', marginBottom: 6 }}>
           Confirmar reagendamiento
         </h1>
-        <p style={{ fontSize: 16, color: 'var(--gris-medio)', textAlign: 'center', marginBottom: 20 }}>
-          Tu cita será movida a la nueva fecha
+        <p style={{ fontSize: 18, color: 'var(--gris-medio)', textAlign: 'center', marginBottom: 20 }}>
+          Tu cita sera movida a la nueva fecha
         </p>
 
-        {/* Old → New comparison */}
         <div className="card" style={{ marginBottom: 20 }}>
           <div style={{ marginBottom: 12 }}>
-            <span style={{ fontSize: 13, fontWeight: 500, textTransform: 'uppercase', letterSpacing: 1.5, color: 'var(--gris-medio)' }}>Cita actual</span>
-            <p style={{ fontSize: 16, color: 'var(--gris-claro)', textDecoration: 'line-through', marginTop: 4 }}>
-              {formatDateES(apptDate)} · {apptTime} hs
+            <span style={{ fontSize: 15, fontWeight: 500, textTransform: 'uppercase', letterSpacing: 1.5, color: 'var(--gris-medio)' }}>Cita actual</span>
+            <p style={{ fontSize: 18, color: 'var(--gris-claro)', textDecoration: 'line-through', marginTop: 4 }}>
+              {formatDateES(apptDate)} &middot; {apptTime} hs
             </p>
           </div>
           <div style={{ borderTop: '1px solid var(--platino)', paddingTop: 12 }}>
-            <span style={{ fontSize: 13, fontWeight: 500, textTransform: 'uppercase', letterSpacing: 1.5, color: 'var(--petroleo)' }}>Nueva cita</span>
-            <p style={{ fontSize: 18, fontWeight: 600, color: 'var(--negro)', marginTop: 4 }}>
-              {formatDateES(selectedDate)} · {displayTime(selectedSlot)} hs
+            <span style={{ fontSize: 15, fontWeight: 500, textTransform: 'uppercase', letterSpacing: 1.5, color: 'var(--petroleo)' }}>Nueva cita</span>
+            <p style={{ fontSize: 20, fontWeight: 600, color: 'var(--negro)', marginTop: 4 }}>
+              {formatDateES(selectedDate)} &middot; {displayTime(selectedSlot)} hs
             </p>
           </div>
         </div>
 
-        {error && <p style={{ color: 'var(--terracota)', fontSize: 16, textAlign: 'center', marginBottom: 12 }}>{error}</p>}
+        {flow.error && <p style={{ color: 'var(--terracota)', fontSize: 16, textAlign: 'center', marginBottom: 12 }}>{flow.error}</p>}
 
         <button
           onClick={handleReschedule}
-          disabled={loading}
+          disabled={flow.loading}
           className="btn-primary"
           style={{ marginBottom: 12 }}
         >
           <RefreshCw size={18} />
-          {loading ? 'Reagendando...' : 'Confirmar reagendamiento'}
+          {flow.loading ? 'Reagendando...' : 'Confirmar reagendamiento'}
         </button>
-        <button onClick={() => { setScreen(1); setError(''); }} className="btn-secondary">
+        <button onClick={() => dispatch({ type: 'GO_BACK', screen: 1 })} className="btn-secondary">
           <ArrowLeft size={18} />
           Elegir otra hora
         </button>
@@ -1058,7 +1135,7 @@ export default function BookingFlow() {
 
   return (
     <Layout devMode={devMode}>
-      <p style={{ textAlign: 'center', color: 'var(--gris-medio)', paddingTop: 48, fontSize: 16 }}>Cargando...</p>
+      <p style={{ textAlign: 'center', color: 'var(--gris-medio)', paddingTop: 48, fontSize: 18 }}>Cargando...</p>
     </Layout>
   );
 }
@@ -1070,10 +1147,10 @@ function Layout({ children, devMode }) {
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0,
           background: 'var(--dorado)', textAlign: 'center',
-          padding: '4px 0', fontSize: 12, fontWeight: 600,
+          padding: '4px 0', fontSize: 14, fontWeight: 600,
           color: 'var(--negro)', zIndex: 100,
         }}>
-          MODO DESARROLLO — Sin límite de intentos
+          MODO DESARROLLO — Sin limite de intentos
         </div>
       )}
       {children}
