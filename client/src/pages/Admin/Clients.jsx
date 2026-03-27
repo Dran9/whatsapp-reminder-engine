@@ -80,7 +80,7 @@ export default function Clients() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Clientes ({total})</h1>
-        <button onClick={openCreate} className="btn-primary !py-2 text-sm">+ Agregar cliente</button>
+        <button type="button" onClick={openCreate} className="btn-primary btn-sm">+ Agregar cliente</button>
       </div>
 
       {/* Filters */}
@@ -172,7 +172,7 @@ export default function Clients() {
 
       {/* Bottom add button */}
       <div className="flex justify-end">
-        <button onClick={openCreate} className="btn-primary !py-2 text-sm">+ Agregar cliente</button>
+        <button type="button" onClick={openCreate} className="btn-primary btn-sm">+ Agregar cliente</button>
       </div>
 
       {/* Edit/Create Modal */}

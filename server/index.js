@@ -55,6 +55,18 @@ app.use('/api/config', require('./routes/config'));
 app.use('/api/admin/clients', require('./routes/clients'));
 app.use('/api/admin/appointments', require('./routes/appointments'));
 
+// ─── Manual reminder trigger (admin only) ────────────────────
+const adminAuth = require('./middleware/adminAuth');
+app.get('/api/admin/test-reminder', adminAuth, async (req, res) => {
+  try {
+    console.log('[reminder] Manual trigger by admin');
+    await checkAndSendReminders();
+    res.json({ success: true, message: 'Recordatorios procesados' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── WhatsApp Webhook ────────────────────────────────────────
 app.get('/api/webhook', (req, res) => {
   const mode = req.query['hub.mode'];

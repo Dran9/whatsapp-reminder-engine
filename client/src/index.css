@@ -144,12 +144,12 @@ input, select, button, textarea {
 
 /* Buttons */
 .btn-primary {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   width: 100%;
-  height: 54px;
+  padding: 14px 24px;
   background: var(--btn-primary-bg);
   color: var(--btn-primary-text);
   border: none;
@@ -158,6 +158,13 @@ input, select, button, textarea {
   font-weight: 500;
   cursor: pointer;
   transition: opacity 200ms, transform 150ms;
+}
+
+.btn-sm {
+  width: auto;
+  padding: 8px 16px;
+  font-size: 14px;
+  border-radius: 10px;
 }
 
 .btn-primary:hover {

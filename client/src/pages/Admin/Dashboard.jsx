@@ -22,6 +22,7 @@ export default function Dashboard() {
   const [todayAppts, setTodayAppts] = useState([]);
   const [weekAppts, setWeekAppts] = useState([]);
   const [recentClients, setRecentClients] = useState([]);
+  const [reminderStatus, setReminderStatus] = useState(null);
 
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
@@ -47,6 +48,38 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Dashboard</h1>
+
+      {/* Reminder trigger */}
+      <div className="card">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-semibold text-lg">Recordatorios WhatsApp</h2>
+            <p className="text-xs text-gris-medio mt-1">Envía recordatorios de citas de mañana (automático 18:40)</p>
+          </div>
+          <button
+            type="button"
+            onClick={async () => {
+              setReminderStatus('sending');
+              try {
+                const res = await fetch('/api/admin/test-reminder', { headers: authHeaders(token) });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                setReminderStatus('sent');
+                setTimeout(() => setReminderStatus(null), 4000);
+              } catch (err) {
+                setReminderStatus('error: ' + err.message);
+                setTimeout(() => setReminderStatus(null), 5000);
+              }
+            }}
+            disabled={reminderStatus === 'sending'}
+            className="btn-primary btn-sm"
+          >
+            {reminderStatus === 'sending' ? 'Enviando...' : 'Enviar ahora'}
+          </button>
+        </div>
+        {reminderStatus === 'sent' && <p className="text-turquesa text-sm mt-2">Recordatorios enviados</p>}
+        {reminderStatus?.startsWith('error') && <p className="text-terracota text-sm mt-2">{reminderStatus}</p>}
+      </div>
 
       {/* Today */}
       <div className="card">

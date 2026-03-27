@@ -115,7 +115,7 @@ export default function Config() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Configuración</h1>
-        <button type="button" onClick={save} disabled={saving} className="btn-primary !py-2 !px-4 text-sm">
+        <button type="button" onClick={save} disabled={saving} className="btn-primary btn-sm">
           {saving ? 'Guardando...' : 'Guardar cambios'}
         </button>
       </div>
@@ -286,7 +286,7 @@ export default function Config() {
 
       {/* Bottom save button */}
       <div className="flex justify-end">
-        <button type="button" onClick={save} disabled={saving} className="btn-primary !py-2 !px-4 text-sm">
+        <button type="button" onClick={save} disabled={saving} className="btn-primary btn-sm">
           {saving ? 'Guardando...' : 'Guardar cambios'}
         </button>
       </div>
