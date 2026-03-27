@@ -101,6 +101,7 @@ export default function BookingFlow() {
 
   // Reschedule mode (from Screen 6)
   const [rescheduleMode, setRescheduleMode] = useState(false);
+  const [oldAppointment, setOldAppointment] = useState(null); // saved copy for Screen 7
 
   // Returning client (known, no active appointment)
   const [isReturning, setIsReturning] = useState(false);
@@ -320,12 +321,13 @@ export default function BookingFlow() {
     setError('');
     try {
       const dateTime = `${selectedDate}T${selectedSlot}`;
+      const appt = oldAppointment || activeAppointment;
       const res = await fetch(apiUrl('/api/reschedule'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           client_id: clientId,
-          old_appointment_id: activeAppointment.id,
+          old_appointment_id: appt.id,
           date_time: dateTime,
         }),
       });
@@ -333,6 +335,7 @@ export default function BookingFlow() {
       if (data.error) throw new Error(data.error);
       setBookedAppointment({ date: selectedDate, time: selectedSlot });
       setActiveAppointment(null);
+      setOldAppointment(null);
       setRescheduleMode(false);
       setWasRescheduled(true);
       setScreen(5);
@@ -829,8 +832,8 @@ export default function BookingFlow() {
             ? (displayName ? `Perfecto ${displayName}, tu cita ha sido reagendada` : 'Tu cita ha sido reagendada')
             : (displayName ? `${displayName}, tu cita está confirmada` : 'Tu cita está confirmada')}
         </h1>
-        <p style={{ fontSize: 16, color: 'var(--turquesa)', textAlign: 'center', marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-          <Heart size={16} color="var(--turquesa)" /> Gracias por tu confianza
+        <p style={{ fontSize: 20, fontWeight: 600, color: 'var(--turquesa)', textAlign: 'center', marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <Heart size={20} color="var(--turquesa)" /> Gracias por tu confianza
         </p>
 
         {bookedAppointment && (
@@ -938,6 +941,7 @@ export default function BookingFlow() {
 
         <button
           onClick={() => {
+            setOldAppointment(activeAppointment);
             setRescheduleMode(true);
             setScreen(1);
           }}
@@ -964,8 +968,9 @@ export default function BookingFlow() {
   // ═══════════════════════════════════════════════════════════════
   // SCREEN 7: Confirm Reschedule (after picking new slot in reschedule mode)
   // ═══════════════════════════════════════════════════════════════
-  if (screen === 7 && activeAppointment) {
-    const apptDT = activeAppointment.date_time || '';
+  if (screen === 7 && (oldAppointment || activeAppointment)) {
+    const appt = oldAppointment || activeAppointment;
+    const apptDT = appt.date_time || '';
     const apptDate = apptDT.split('T')[0];
     const apptTime = apptDT.split('T')[1]?.substring(0, 5) || '';
 
