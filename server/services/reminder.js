@@ -1,25 +1,31 @@
 const { query } = require('../db');
 const { listEvents } = require('./calendar');
 
-async function checkAndSendReminders() {
+async function checkAndSendReminders({ date } = {}) {
   try {
     const calendarId = process.env.CALENDAR_ID || 'danielmacleann@gmail.com';
 
-    // Get tomorrow's events in La Paz time
-    const now = new Date();
-    const tomorrow = new Date(now.toLocaleString('en-US', { timeZone: 'America/La_Paz' }));
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(0, 0, 0, 0);
+    const pad = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
-    const dayAfter = new Date(tomorrow);
+    let targetDay;
+    if (date === 'today') {
+      targetDay = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/La_Paz' }));
+      targetDay.setHours(0, 0, 0, 0);
+    } else {
+      targetDay = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/La_Paz' }));
+      targetDay.setDate(targetDay.getDate() + 1);
+      targetDay.setHours(0, 0, 0, 0);
+    }
+
+    const dayAfter = new Date(targetDay);
     dayAfter.setDate(dayAfter.getDate() + 1);
 
-    const pad = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    const timeMin = new Date(`${pad(tomorrow)}T00:00:00-04:00`).toISOString();
+    const timeMin = new Date(`${pad(targetDay)}T00:00:00-04:00`).toISOString();
     const timeMax = new Date(`${pad(dayAfter)}T00:00:00-04:00`).toISOString();
 
+    const label = date === 'today' ? 'today' : 'tomorrow';
     const events = await listEvents(calendarId, timeMin, timeMax);
-    console.log(`[reminder] Found ${events.length} events for tomorrow`);
+    console.log(`[reminder] Found ${events.length} events for ${label}`);
 
     for (const event of events) {
       const summary = event.summary || '';

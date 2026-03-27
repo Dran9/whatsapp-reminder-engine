@@ -59,9 +59,10 @@ app.use('/api/admin/appointments', require('./routes/appointments'));
 const adminAuth = require('./middleware/adminAuth');
 app.get('/api/admin/test-reminder', adminAuth, async (req, res) => {
   try {
-    console.log('[reminder] Manual trigger by admin');
-    await checkAndSendReminders();
-    res.json({ success: true, message: 'Recordatorios procesados' });
+    const date = req.query.date === 'today' ? 'today' : 'tomorrow';
+    console.log(`[reminder] Manual trigger by admin (${date})`);
+    await checkAndSendReminders({ date });
+    res.json({ success: true, message: `Recordatorios de ${date === 'today' ? 'hoy' : 'mañana'} procesados` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

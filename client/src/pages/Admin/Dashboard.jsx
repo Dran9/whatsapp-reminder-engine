@@ -54,31 +54,37 @@ export default function Dashboard() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-semibold text-lg">Recordatorios WhatsApp</h2>
-            <p className="text-xs text-gris-medio mt-1">Envía recordatorios de citas de mañana (automático 18:40)</p>
+            <p className="text-xs text-gris-medio mt-1">Envía recordatorios (automático 18:40 para mañana)</p>
           </div>
-          <button
-            type="button"
-            onClick={async () => {
-              setReminderStatus('sending');
-              try {
-                const res = await fetch('/api/admin/test-reminder', { headers: authHeaders(token) });
-                const data = await res.json();
-                if (data.error) throw new Error(data.error);
-                setReminderStatus('sent');
-                setTimeout(() => setReminderStatus(null), 4000);
-              } catch (err) {
-                setReminderStatus('error: ' + err.message);
-                setTimeout(() => setReminderStatus(null), 5000);
-              }
-            }}
-            disabled={reminderStatus === 'sending'}
-            className="btn-primary btn-sm"
-          >
-            {reminderStatus === 'sending' ? 'Enviando...' : 'Enviar ahora'}
-          </button>
+          <div className="flex gap-2">
+            {['today', 'tomorrow'].map(d => (
+              <button
+                key={d}
+                type="button"
+                onClick={async () => {
+                  setReminderStatus('sending');
+                  try {
+                    const res = await fetch(`/api/admin/test-reminder?date=${d}`, { headers: authHeaders(token) });
+                    const data = await res.json();
+                    if (data.error) throw new Error(data.error);
+                    setReminderStatus(data.message);
+                    setTimeout(() => setReminderStatus(null), 4000);
+                  } catch (err) {
+                    setReminderStatus('error: ' + err.message);
+                    setTimeout(() => setReminderStatus(null), 5000);
+                  }
+                }}
+                disabled={reminderStatus === 'sending'}
+                className="btn-primary btn-sm"
+              >
+                {reminderStatus === 'sending' ? '...' : d === 'today' ? 'Hoy' : 'Mañana'}
+              </button>
+            ))}
+          </div>
         </div>
-        {reminderStatus === 'sent' && <p className="text-turquesa text-sm mt-2">Recordatorios enviados</p>}
-        {reminderStatus?.startsWith('error') && <p className="text-terracota text-sm mt-2">{reminderStatus}</p>}
+        {reminderStatus && reminderStatus !== 'sending' && (
+          <p className={`text-sm mt-2 ${reminderStatus.startsWith('error') ? 'text-terracota' : 'text-turquesa'}`}>{reminderStatus}</p>
+        )}
       </div>
 
       {/* Today */}
